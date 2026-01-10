@@ -160,9 +160,8 @@ export async function translatePlugins(
       if (claudeConfig) {
         // Transform each server in the config
         for (const [serverName, serverConfig] of Object.entries(claudeConfig)) {
-          // Prefix server name with plugin name to avoid conflicts
-          const prefixedName = `${plugin.name}/${serverName}`;
-          allMcpServers[prefixedName] = transformMcpServer(
+          // Use original server name as per spec
+          allMcpServers[serverName] = transformMcpServer(
             serverConfig,
             plugin.installPath
           );
