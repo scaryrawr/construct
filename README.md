@@ -66,13 +66,16 @@ Construct saves your last-used plugins to `.construct.json` in the current direc
 
 ```bash
 # Generate completion script
-bun run index.ts completion
+bun run index.ts completion [bash|zsh|fish]
 
 # For bash
-bun run index.ts completion >> ~/.bashrc
+bun run index.ts completion bash >> ~/.bashrc
 
 # For zsh
-bun run index.ts completion >> ~/.zshrc
+bun run index.ts completion zsh >> ~/.zshrc
+
+# For fish
+bun run index.ts completion fish > ~/.config/fish/completions/construct.fish
 ```
 
 ## Requirements
