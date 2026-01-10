@@ -7,10 +7,19 @@
     "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@types/yargs": "^17.0.35",
     "yargs": "^18.0.0"
+  },
+  "scripts": {
+    "build": "bun build ./index.ts --compile --outfile=dist/construct",
+    "build:all": "bun run build:linux-x64 && bun run build:linux-arm64 && bun run build:macos-x64 && bun run build:macos-arm64 && bun run build:windows-x64",
+    "build:linux-x64": "mkdir -p dist/linux-x64 && bun build ./index.ts --compile --target=bun-linux-x64 --outfile=dist/linux-x64/construct",
+    "build:linux-arm64": "mkdir -p dist/linux-arm64 && bun build ./index.ts --compile --target=bun-linux-arm64 --outfile=dist/linux-arm64/construct",
+    "build:macos-x64": "mkdir -p dist/macos-x64 && bun build ./index.ts --compile --target=bun-darwin-x64 --outfile=dist/macos-x64/construct",
+    "build:macos-arm64": "mkdir -p dist/macos-arm64 && bun build ./index.ts --compile --target=bun-darwin-arm64 --outfile=dist/macos-arm64/construct",
+    "build:windows-x64": "mkdir -p dist/windows-x64 && bun build ./index.ts --compile --target=bun-windows-x64 --outfile=dist/windows-x64/construct.exe"
   }
 }
