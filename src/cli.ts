@@ -5,6 +5,7 @@ export interface CliArgs {
   listAvailablePlugins: boolean;
   enabledPlugins: string[];
   passthroughArgs: string[];
+  completionShell?: "bash" | "zsh" | "fish";
 }
 
 export function parseCliArgs(argv: string[]): CliArgs {
@@ -16,6 +17,18 @@ export function parseCliArgs(argv: string[]): CliArgs {
   const parsed = yargs(hideBin(constructArgs))
     .scriptName("construct")
     .usage("$0 [options] [-- copilot-args...]")
+    .command(
+      "completion [shell]",
+      "Generate shell completion script",
+      (yargs) => {
+        yargs.positional("shell", {
+          describe: "Shell type (bash, zsh, or fish)",
+          type: "string",
+          choices: ["bash", "zsh", "fish"],
+          default: "bash",
+        });
+      }
+    )
     .option("list-available-plugins", {
       type: "boolean",
       description: "List all discoverable plugins from installed marketplaces",
@@ -33,6 +46,10 @@ export function parseCliArgs(argv: string[]): CliArgs {
       "Enable a specific plugin"
     )
     .example(
+      "$0 --enable-plugin plugin1@marketplace --enable-plugin plugin2@marketplace",
+      "Enable multiple plugins"
+    )
+    .example(
       "$0 --enable-plugin tmux@scaryrawr-plugins -- --continue",
       "Enable plugin and pass args to copilot"
     )
@@ -44,12 +61,12 @@ export function parseCliArgs(argv: string[]): CliArgs {
     .alias("h", "help")
     .version()
     .alias("v", "version")
-    .completion("completion", "Generate shell completion script")
     .parseSync();
 
   return {
     listAvailablePlugins: parsed["list-available-plugins"] as boolean,
     enabledPlugins: (parsed["enable-plugin"] as string[]) || [],
     passthroughArgs,
+    completionShell: parsed._[0] === "completion" ? (parsed.shell as "bash" | "zsh" | "fish") : undefined,
   };
 }
