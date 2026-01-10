@@ -45,6 +45,19 @@ interface InstalledPluginsFile {
 }
 
 /**
+ * Structure of marketplace.json
+ */
+interface MarketplaceFile {
+  name: string;
+  plugins: Array<{
+    name: string;
+    source: string;
+    version?: string;
+    [key: string]: any;
+  }>;
+}
+
+/**
  * Gets the path to the installed plugins configuration file
  */
 function getInstalledPluginsPath(): string {
@@ -62,18 +75,15 @@ async function scanPluginComponents(installPath: string): Promise<PluginComponen
     const skillGlob = new Glob("skills/*/SKILL.md");
     const skillFiles = Array.from(skillGlob.scanSync({ cwd: installPath, absolute: false }));
     
-    for (const skillFile of skillFiles) {
-      // Extract skill name from path: skills/<skill-name>/SKILL.md
-      const parts = skillFile.split('/');
-      if (parts.length >= 3 && parts[1]) {
-        const skillName = parts[1];
-        const skillDir = join(installPath, 'skills', skillName);
-        components.push({
-          type: 'skill',
-          path: skillDir,
-          name: skillName
-        });
-      }
+    // If any skills exist, add the skills root directory (not individual skill dirs)
+    // COPILOT_SKILLS_DIRS expects the parent "skills" directory
+    if (skillFiles.length > 0) {
+      const skillsDir = join(installPath, 'skills');
+      components.push({
+        type: 'skill',
+        path: skillsDir,
+        name: 'skills'
+      });
     }
 
     // Check for MCP server config: .mcp.json
@@ -153,9 +163,97 @@ export async function scanInstalledPlugins(): Promise<PluginRegistry> {
 }
 
 /**
- * Returns a list of all installed plugin names
+ * Scans marketplace directories for available plugins
+ */
+export async function scanMarketplacePlugins(): Promise<PluginRegistry> {
+  const registry: PluginRegistry = {
+    plugins: new Map()
+  };
+
+  const marketplacesDir = join(homedir(), '.claude', 'plugins', 'marketplaces');
+
+  try {
+    // Scan for marketplace directories (dot: true needed for .claude-plugin)
+    const marketplaceGlob = new Glob("*/.claude-plugin/marketplace.json");
+    const marketplaceFiles = Array.from(marketplaceGlob.scanSync({ cwd: marketplacesDir, absolute: false, dot: true }));
+
+    for (const marketplaceFile of marketplaceFiles) {
+      try {
+        const marketplacePath = join(marketplacesDir, marketplaceFile);
+        const marketplaceJsonFile = Bun.file(marketplacePath);
+
+        if (!await marketplaceJsonFile.exists()) {
+          continue;
+        }
+
+        const marketplaceData: MarketplaceFile = await marketplaceJsonFile.json();
+        const marketplaceName = marketplaceData.name;
+
+        // Get the marketplace base directory (parent of .claude-plugin)
+        const marketplaceBaseDir = join(marketplacesDir, marketplaceFile.split('/')[0]!);
+
+        // Process each plugin in the marketplace
+        for (const plugin of marketplaceData.plugins) {
+          try {
+            // Skip plugins with remote/object source (not locally available)
+            if (typeof plugin.source !== 'string') {
+              continue;
+            }
+
+            // Resolve the plugin path using the source field
+            const pluginPath = join(marketplaceBaseDir, plugin.source);
+
+            // Scan for components in the plugin directory
+            const components = await scanPluginComponents(pluginPath);
+
+            // Use the format plugin-name@marketplace-name
+            const pluginKey = `${plugin.name}@${marketplaceName}`;
+
+            registry.plugins.set(pluginKey, {
+              name: pluginKey,
+              installPath: pluginPath,
+              version: plugin.version || 'unknown',
+              components
+            });
+          } catch (error) {
+            console.warn(`Warning: Error processing plugin ${plugin.name} in marketplace ${marketplaceName}:`, error);
+          }
+        }
+      } catch (error) {
+        console.warn(`Warning: Error reading marketplace file ${marketplaceFile}:`, error);
+      }
+    }
+  } catch (error) {
+    // Gracefully handle case where marketplaces directory doesn't exist
+    console.warn('Warning: Error scanning marketplace directories:', error);
+  }
+
+  return registry;
+}
+
+/**
+ * Scans all available plugins (installed and marketplace) and returns merged registry
+ */
+export async function scanAllPlugins(): Promise<PluginRegistry> {
+  // Scan both installed and marketplace plugins
+  const [installedRegistry, marketplaceRegistry] = await Promise.all([
+    scanInstalledPlugins(),
+    scanMarketplacePlugins()
+  ]);
+
+  // Merge results, with installed plugins taking precedence
+  const mergedPlugins = new Map<string, PluginInfo>([
+    ...marketplaceRegistry.plugins,
+    ...installedRegistry.plugins
+  ]);
+
+  return { plugins: mergedPlugins };
+}
+
+/**
+ * Returns a list of all available plugin names (installed and marketplace)
  */
 export async function listAvailablePlugins(): Promise<string[]> {
-  const registry = await scanInstalledPlugins();
+  const registry = await scanAllPlugins();
   return Array.from(registry.plugins.keys());
 }
