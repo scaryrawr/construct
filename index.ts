@@ -1,5 +1,5 @@
 import { parseCliArgs } from "./src/cli";
-import { scanInstalledPlugins, listAvailablePlugins } from "./src/scanner";
+import { scanAllPlugins, listAvailablePlugins } from "./src/scanner";
 import { loadConfig, saveConfig, mergeCliWithConfig } from "./src/config";
 import { translatePlugins } from "./src/translator";
 import { executeCopilot } from "./src/executor";
@@ -25,8 +25,8 @@ async function main(): Promise<void> {
   const savedConfig = await loadConfig();
   const enabledPluginNames = mergeCliWithConfig(args.enabledPlugins, savedConfig);
 
-  // Scan installed plugins
-  const registry = await scanInstalledPlugins();
+  // Scan all available plugins (installed and marketplace)
+  const registry = await scanAllPlugins();
 
   // Resolve enabled plugins to PluginInfo objects
   const enabledPlugins = [];
