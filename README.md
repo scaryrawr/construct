@@ -73,22 +73,6 @@ Construct saves your last-used plugins to `.construct.json` in the current direc
 - **Hooks** - Claude Code event handlers aren't supported by Copilot CLI
 - **LSP Servers** - Language server configs aren't supported
 
-## Shell Completions
-
-```bash
-# Generate completion script
-bun run index.ts completion [bash|zsh|fish]
-
-# For bash
-bun run index.ts completion bash >> ~/.bashrc
-
-# For zsh
-bun run index.ts completion zsh >> ~/.zshrc
-
-# For fish
-bun run index.ts completion fish > ~/.config/fish/completions/construct.fish
-```
-
 ## Requirements
 
 - [Bun](https://bun.sh) runtime
