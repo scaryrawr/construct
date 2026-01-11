@@ -1,5 +1,7 @@
 # Construct
 
+![the construct](./assets/the-construct.gif)
+
 > ⚠️ **Vibe Coded** - This tool was built in a single AI-assisted session. Use at your own risk. It works on my machine™.
 
 A wrapper for [GitHub Copilot CLI](https://github.com/github/copilot-cli/) that enables loading plugins, skills, and MCP servers from [Claude Code](https://claude.ai/code) marketplaces.
