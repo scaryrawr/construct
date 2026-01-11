@@ -34,6 +34,9 @@ bun run index.ts
 
 # Pass a prompt directly
 bun run index.ts -- "fix the failing tests"
+
+# Type-check the codebase
+bun run typecheck
 ```
 
 ## How It Works
