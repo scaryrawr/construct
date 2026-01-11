@@ -55,6 +55,7 @@ async function main(): Promise<void> {
     env: translation.env,
     additionalMcpConfig: translation.additionalMcpConfig,
     passthroughArgs: args.passthroughArgs,
+    translatedAgents: translation.translatedAgents,
   });
 
   process.exit(exitCode);
