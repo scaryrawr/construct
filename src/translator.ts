@@ -1,5 +1,6 @@
-import { join } from "path";
+import { join } from "node:path";
 import type { PluginInfo, PluginComponent } from "./scanner";
+import { translateAgents, type TranslatedAgent } from "./agent-translator";
 
 /**
  * Claude Code MCP server configuration format
@@ -47,6 +48,8 @@ export interface TranslationResult {
   env: Record<string, string>;
   /** JSON string for --additional-mcp-config flag, or null if no MCP servers */
   additionalMcpConfig: string | null;
+  /** Translated agent definitions */
+  translatedAgents: TranslatedAgent[];
 }
 
 /**
@@ -179,8 +182,18 @@ export async function translatePlugins(
     additionalMcpConfig = JSON.stringify(copilotConfig);
   }
 
+  // 4. Translate agents
+  const mcpServerNames = Object.keys(allMcpServers);
+  let translatedAgents: TranslatedAgent[] = [];
+  try {
+    translatedAgents = await translateAgents(plugins, mcpServerNames);
+  } catch (error) {
+    console.warn('Warning: Failed to translate agents:', error);
+  }
+
   return {
     env,
     additionalMcpConfig,
+    translatedAgents,
   };
 }
