@@ -46,7 +46,16 @@ bun run typecheck
 3. **Translates** Claude Code formats to Copilot CLI equivalents:
    - Skills → `COPILOT_SKILLS_DIRS` environment variable
    - MCP configs → `--additional-mcp-config` JSON argument
+   - Agents → `.github/agents/<plugin>-<agent>.md` files with translated tool references
 4. **Spawns** `copilot` with the translated configuration
+
+### Agent Translation
+
+Claude Code agents (markdown files with YAML frontmatter in `agents/*.md`) are translated to Copilot's agent format:
+
+- Agents are written to `.github/agents/` in the current directory
+- Tool references are translated from Claude format (`mcp__plugin_name_server__tool`) to Copilot format (`server/tool`)
+- Frontmatter fields (name, description, model, tools) are preserved
 
 ## Configuration
 
@@ -63,7 +72,6 @@ Construct saves your last-used plugins to `.construct.json` in the current direc
 
 - **Hooks** - Claude Code event handlers aren't supported by Copilot CLI
 - **LSP Servers** - Language server configs aren't supported
-- **Custom Agents** - Different format/purpose than Copilot's `--agent` flag
 
 ## Shell Completions
 
