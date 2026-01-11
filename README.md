@@ -20,22 +20,22 @@ bun install
 
 ```bash
 # List available plugins from installed Claude Code marketplaces
-bun run index.ts --list-available-plugins
+construct --list-available-plugins
 
 # Enable specific plugins for this session
-bun run index.ts --enable-plugin tmux@scaryrawr-plugins
+construct --enable-plugin tmux@scaryrawr-plugins
 
 # Enable multiple plugins
-bun run index.ts --enable-plugin tmux@scaryrawr-plugins --enable-plugin chrome-devtools@scaryrawr-plugins
+construct --enable-plugin tmux@scaryrawr-plugins --enable-plugin chrome-devtools@scaryrawr-plugins
 
 # Pass arguments through to copilot (everything after -- goes to copilot)
-bun run index.ts --enable-plugin tmux@scaryrawr-plugins -- --continue
+construct --enable-plugin tmux@scaryrawr-plugins -- --continue
 
 # Run with saved config (uses .construct.json)
-bun run index.ts
+construct
 
 # Pass a prompt directly
-bun run index.ts -- "fix the failing tests"
+construct -- "fix the failing tests"
 
 # Type-check the codebase
 bun run typecheck
