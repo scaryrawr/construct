@@ -5,7 +5,6 @@ export interface CliArgs {
   listAvailablePlugins: boolean;
   enabledPlugins: string[];
   passthroughArgs: string[];
-  completionShell?: "bash" | "zsh" | "fish";
 }
 
 export function parseCliArgs(argv: string[]): CliArgs {
@@ -17,18 +16,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
   const parsed = yargs(hideBin(constructArgs))
     .scriptName("construct")
     .usage("$0 [options] [-- copilot-args...]")
-    .command(
-      "completion [shell]",
-      "Generate shell completion script",
-      (yargs) => {
-        yargs.positional("shell", {
-          describe: "Shell type (bash, zsh, or fish)",
-          type: "string",
-          choices: ["bash", "zsh", "fish"],
-          default: "bash",
-        });
-      }
-    )
+    .completion("completion", "Generate shell completion script")
     .option("list-available-plugins", {
       type: "boolean",
       description: "List all discoverable plugins from installed marketplaces",
@@ -67,6 +55,5 @@ export function parseCliArgs(argv: string[]): CliArgs {
     listAvailablePlugins: parsed["list-available-plugins"] as boolean,
     enabledPlugins: (parsed["enable-plugin"] as string[]) || [],
     passthroughArgs,
-    completionShell: parsed._[0] === "completion" ? (parsed.shell as "bash" | "zsh" | "fish") : undefined,
   };
 }

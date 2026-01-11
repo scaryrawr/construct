@@ -3,26 +3,9 @@ import { scanAllPlugins, listAvailablePlugins } from "./src/scanner";
 import { loadConfig, saveConfig, mergeCliWithConfig } from "./src/config";
 import { translatePlugins } from "./src/translator";
 import { executeCopilot } from "./src/executor";
-import { generateBashCompletion, generateZshCompletion, generateFishCompletion } from "./src/completions";
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv);
-
-  // Handle completion command
-  if (args.completionShell) {
-    switch (args.completionShell) {
-      case "bash":
-        console.log(generateBashCompletion());
-        break;
-      case "zsh":
-        console.log(generateZshCompletion());
-        break;
-      case "fish":
-        console.log(generateFishCompletion());
-        break;
-    }
-    process.exit(0);
-  }
 
   // Handle --list-available-plugins
   if (args.listAvailablePlugins) {
