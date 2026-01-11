@@ -1,205 +1,50 @@
-# Coding Agent Onboarding Guide
+# Coding Agent Guide for Construct
 
-This document provides comprehensive guidance for coding agents working with the Construct project.
-
-## Project Overview
-
-Construct is a wrapper for GitHub Copilot CLI that enables loading plugins, skills, MCPs (Model Context Protocol), and custom agents from Claude Code marketplaces.
-
-### Key Features
-- **Plugin Discovery**: Automatically scans `~/.claude/plugins/` for installed plugins
-- **Format Translation**: Converts Claude Code plugin formats to GitHub Copilot CLI equivalents
-- **Configuration Management**: Persists enabled plugins in `.construct.json`
-- **MCP Server Support**: Translates MCP configurations between formats
-
-## Architecture
-
-### Core Components
-1. **CLI Parser** (`src/cli.ts`): Handles command-line arguments using yargs
-2. **Plugin Scanner** (`src/scanner.ts`): Discovers and indexes installed plugins
-3. **Config Manager** (`src/config.ts`): Manages `.construct.json` configuration
-4. **Translator** (`src/translator.ts`): Converts Claude Code formats to Copilot CLI
-5. **Executor** (`src/executor.ts`): Spawns the copilot subprocess with translated config
-
-### Data Flow
-```
-CLI Arguments → Plugin Discovery → Format Translation → Copilot Execution
+## Build/Lint/Test Commands
+### Core Commands```bash
+bun run index.ts --list-available-plugins  bun run build                        # Build current platform
+bun run build:all                    # Build all platforms (linux-x64, arm-64, macos-..., windows)bun run build:macos-arm64         # Build specific platform
+```### Running Single Test (Manual)```bash
+# Manual verification steps:1 bun run index.ts --list-available-plugins2 Verify output contains "Available plugins:"3 Test with plugin: bun run index --enable-plugin playwright@claude-plugins-original
+```### Typechecking```bash
+# Bun infers tsconfig.json automaticallybun run index.ts --help          # Triggers typechecking
 ```
 
-## Working with Plugins
+## Code Style Guidelines
 
-### Plugin Structure
-Installed plugins are located in:
-```
-~/.claude/plugins/
-├── installed_plugins.json      # Registry of all plugins
-├── known_marketplaces.json     # Registered marketplaces
-├── cache/                      # Installed plugin files
-└── marketplaces/               # Cloned marketplace repositories
-```
+### TypeScript Configuration (tsconfig.json)Target: ESNext, Module resolution: bundler with verbatim syntax, Strict mode enabled (strict, noUncheckedIndexedAccess), NoEmit: true### Imports Order & Style1 Node built-ins use explicit `node:` prefix: `import { join } from "node:path";`
+2 External libraries import directly: `import yargs from "yargs";`3 Type imports use explicit `type` keyword### Interface Naming (PascalCase)CliArgs, PluginInfo, ConstructConfig, TranslationResult
 
-### Component Types
-Each plugin can contain:
-- **Skills**: Directories with `SKILL.md` files (YAML frontmatter)
-- **MCP Servers**: Defined in `.mcp.json` at plugin root
-- **Agents**: Markdown files in `agents/` directory with YAML frontmatter
-- **Hooks** (unsupported): Event handlers defined in `hooks/hooks.json`
+### Variable/Constant Naming (camelCase/SCREAMING_SCAL_Constants: CONFIG_FILE = ".construct.json", Variables: cliPlugins, enabledPluginNames
 
-### Plugin Naming Convention
-Plugins are referenced as `<plugin-name>@<marketplace-name>`
-Example: `tmux@scaryrawr-plugins`
+### Function Naming (camelCase)parseCliArgs, scanAllPlugins, loadConfig, saveConfig, mergeCliWithConfig### File Organization (src/)cli.ts: CLI argument parsing (yargs)scanner.ts: Plugin discovery/indexing (scanAllPlugins, scanInstalledPlugins)config.ts: Configuration management (.construct.json)translator.ts: Format translation (translatePlugins, expandPluginRootInObject)executor.ts: Copilot subprocess spawningcompletions.ts: Shell completion script generation
 
-## Development Workflow
+### Error Handling Patterns1 Console.warn for non-critical errors (missing files, scanning issues)2 Console.error for critical failures (file I/O, parsing errors)
+3 Try/catch wrap file system operations and JSON parsing4 Functions return null on graceful failure (loadConfig, readMcpConfig)
 
-### Setting Up the Environment
-```bash
-# Install dependencies
-bun install
+### Async/await Style- Top-level async function: `async function main(): Promise<void>`- Try/catch in async context, Concurrent via Promise.all
 
-# Run the application
-bun run index.ts --list-available-plugins
+### JSDoc Comments (TSDoc on exported symbols)```typescript
+/**
+ * Represents a single component within a plugin (skill, MCP server, or agent) */export interface PluginComponent {}
 
-# Enable a plugin for testing
-bun run index.ts --enable-plugin tmux@scaryrawr-plugins -- --continue
+/** Scans all installed plugins and builds a registry */
+}```### Custom Types (avoid "any")Explicit interfaces: PluginInfo, PluginComponent, Generic type parameters: <T>, Return types on all functions
+
+### Structure (all source files)1 Imports section2 Type/interface definitions3 Constant/module-level declarations4 Function implementations (exported and private)
+
+### Naming Convention: PluginsFormat: `<plugin-name>@<marketplace-name>`, Example: `tmux@scaryrawr-plugins`
+
+### File Paths (Absolute, no relative)Use `join` for path construction: `const configPath = join(process.cwd(), CONFIG_FILE)`
+
+### Project Structure```src/├── cli.ts              CLI argument parsing├── scanner.ts          Plugin discovery and indexing├── config.ts           Configuration management├── translator.ts       Format translation logic└── executor.ts         Copilot subprocess execution
 ```
 
-### Testing Commands
-```bash
-# List available plugins
-bun run index.ts --list-available-plugins
-
-# Enable specific plugins
-bun run index.ts --enable-plugin plugin1@marketplace --enable-plugin plugin2@marketplace
-
-# Pass arguments to copilot
-bun run index.ts --enable-plugin tmux@scaryrawr-plugins -- --allow-all-tools
-
-# Use saved configuration
-bun run index.ts
-```
-
-### Debugging Tips
-1. **Check installed plugins**: Verify `~/.claude/plugins/installed_plugins.json` exists
-2. **Inspect plugin structure**: Navigate to plugin install paths to see components
-3. **Validate MCP configs**: Ensure `.mcp.json` files are valid JSON
-4. **Environment variables**: Check `COPILOT_SKILLS_DIRS` is set correctly
-
-## Format Translation Guide
-
-### Skills Translation
-**Source**: `<plugin-path>/skills/<skill-name>/SKILL.md`
-**Target**: `COPILOT_SKILLS_DIRS` environment variable
-
-Example:
-```bash
-COPILOT_SKILLS_DIRS=/path/to/skill1,/path/to/skill2
-```
-
-### MCP Server Translation
-
-#### Claude Code Format (`.mcp.json`)
-```json
-{
-  "server-name": {
-    "command": "npx",
-    "args": ["package@latest", "--option=value"],
-    "env": {
-      "VAR_NAME": "value"
-    }
-  }
-}
-```
-
-#### GitHub Copilot Format (`--additional-mcp-config`)
-```json
-{
-  "mcpServers": {
-    "server-name": {
-      "type": "local",
-      "command": "npx",
-      "args": ["package@latest", "--option=value"],
-      "env": {
-        "VAR_NAME": "value"
-      },
-      "tools": ["*"]
-    }
-  }
-}
-```
-
-### Translation Rules
-1. Wrap servers in `mcpServers` object
-2. Add `"type": "local"` to each server
-3. Add `"tools": ["*"]` (or specify allowed tools)
-4. Expand `${CLAUDE_PLUGIN_ROOT}` → actual plugin install path
-5. Preserve `command`, `args`, `env`, and `cwd` fields
-
-## Common Issues & Solutions
-
-### Issue: No Plugins Found
-**Cause**: `installed_plugins.json` doesn't exist or is empty
-**Solution**: Install plugins via Claude Code first, then verify the file exists at `~/.claude/plugins/installed_plugins.json`
-
-### Issue: Plugin Not Found Error
-**Cause**: Plugin name doesn't match exactly (case-sensitive)
-**Solution**: Use exact format from `installed_plugins.json` (e.g., `plugin@marketplace`)
-
-### Issue: MCP Servers Not Working
-**Cause**: Invalid JSON in `.mcp.json` or missing required fields
-**Solution**: Validate the MCP config file and ensure all required fields are present
-
-### Issue: Skills Not Loading
-**Cause**: `COPILOT_SKILLS_DIRS` not set or incorrect paths
-**Solution**: Check the environment variable is properly constructed with valid skill directory paths
-
-## File Structure Reference
-
-```
-src/
-├── cli.ts              # CLI argument parsing
-├── scanner.ts          # Plugin discovery and scanning
-├── config.ts           # Configuration management
-├── translator.ts       # Format translation logic
-└── executor.ts         # Copilot subprocess execution
-```
-
-## Environment Variables
-- `COPILOT_SKILLS_DIRS`: Comma-separated list of skill directories
+### Environment Variables- `COPILOT_SKILLS_DIRS`: Comma-separated list of skill directories
 - `CLAUDE_PLUGIN_ROOT`: Placeholder for plugin root path (expanded during translation)
 
-## Testing the Application
-
-### Manual Testing
-```bash
-# Test plugin scanning
-bun run index.ts --list-available-plugins
-
-# Test with specific plugins
-bun run index.ts --enable-plugin tmux@scaryrawr-plugins -- --help
-
-# Test configuration persistence
-bun run index.ts --enable-plugin plugin@marketplace
-echo "Saved config:"
-cat .construct.json
+### Testing Manual```bash
+# Test plugin scanning: bun run index --list-available-plugins# Verify configuration persistence: cat .construct.json
 ```
 
-### Automated Testing
-The project uses Bun's built-in test runner:
-```bash
-bun test
-```
-
-## Resources
-- [Bun Documentation](https://bun.sh/docs)
-- [GitHub Copilot CLI](https://github.com/github/copilot-cli/)
-- [Claude Code Plugins](https://claude.ai/code)
-- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
-
-## Contributing
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with clear commit messages
-4. Submit a pull request
-
-## Support
-For issues or questions, please open an issue in the GitHub repository.
+### Common Issues1 No Plugins Found: installed_plugins.json missing or empty - Install plugins via Claude Code first2 Plugin Not Found: Name mismatch (case-sensitive) - Use exact format from installed_plugins.json3 MCP Servers Not Working: Invalid .mcp.0json - Validate JSON and required fields4 Skills Not Loading: COPILOT_SKILLS_DIRS not set - Check environment variable construction
