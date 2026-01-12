@@ -2,7 +2,9 @@
   "name": "construct",
   "module": "index.ts",
   "type": "module",
-  "private": true,
+  "bin": {
+    "construct": "./index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

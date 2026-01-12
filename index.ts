@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { parseCliArgs } from "./src/cli";
 import { scanAllPlugins, listAvailablePlugins } from "./src/scanner";
 import { loadConfig, saveConfig, mergeCliWithConfig } from "./src/config";
