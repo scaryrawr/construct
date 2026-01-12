@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { mkdir, readdir, unlink, writeFile, rm, readFile } from "node:fs/promises";
+import { mkdir, readdir, unlink, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
@@ -91,7 +91,7 @@ export async function acquireLock(resourcePaths: string[]): Promise<ResourceLock
   };
   
   try {
-    await writeFile(lockFilePath, JSON.stringify(lockData, null, 2));
+    await Bun.write(lockFilePath, JSON.stringify(lockData, null, 2));
   } catch (error) {
     console.warn(`Failed to create lock file ${lockFilePath}:`, error);
     throw error;
@@ -173,9 +173,9 @@ export async function cleanupStaleLocks(): Promise<void> {
       const lockFilePath = join(locksDir, file);
       
       try {
-        // Read lock file using Node.js API for compatibility
-        const content = await readFile(lockFilePath, 'utf-8');
-        const lockData = JSON.parse(content);
+        // Read lock file using Bun API
+        const lockFile = Bun.file(lockFilePath);
+        const lockData = JSON.parse(await lockFile.text());
         
         // Check if process still exists
         const pid = lockData.pid;
