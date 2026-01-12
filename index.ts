@@ -3,9 +3,15 @@ import { scanAllPlugins, listAvailablePlugins } from "./src/scanner";
 import { loadConfig, saveConfig, mergeCliWithConfig } from "./src/config";
 import { translatePlugins } from "./src/translator";
 import { executeCopilot } from "./src/executor";
+import { runOperator } from "./src/operator";
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv);
+
+  if (args.command === "operator") {
+    const exitCode = await runOperator({ passthroughArgs: args.passthroughArgs });
+    process.exit(exitCode);
+  }
 
   // Handle --list-available-plugins
   if (args.listAvailablePlugins) {
