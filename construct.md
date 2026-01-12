@@ -7,13 +7,13 @@ Construct is a wrapper for `copilot` CLI (https://github.com/github/copilot-cli/
 
 ### Command Structure
 - `construct [options] [-- copilot-args...]` - Run with enabled plugins, passing remaining args to copilot
-- `construct --list-available-plugins` - List all discoverable plugins
-- `construct --enable-plugin <plugin>@<marketplace>` - Enable plugin(s) for this run (repeatable)
+- `construct --list` - List all discoverable plugins
+- `construct --load <plugin>@<marketplace>` - Load plugin(s) for this run (repeatable)
 - `construct` (no args) - Use `.construct.json` config from current directory
 
 **Passthrough args**: Everything after `--` is passed directly to `copilot`. Example:
 ```bash
-construct --enable-plugin tmux@scaryrawr-plugins -- --continue --allow-all-tools
+construct --load tmux@scaryrawr-plugins -- --continue --allow-all-tools
 ```
 
 **Behavior**: Construct translates enabled plugins into appropriate environment variables and CLI args, then spawns `copilot` as a subprocess with `spawnSync`.
@@ -157,7 +157,7 @@ construct --enable-plugin tmux@scaryrawr-plugins -- --continue --allow-all-tools
 ## Implementation Tasks
 
 1. **CLI Setup** (yargs)
-   - Parse `--list-available-plugins`, `--enable-plugin`, passthrough args
+   - Parse `--list`, `--load`, passthrough args
    - Generate shell completions
 
 2. **Plugin Scanner**
@@ -202,10 +202,10 @@ construct --enable-plugin tmux@scaryrawr-plugins -- --continue --allow-all-tools
 ## Example Usage
 ```bash
 # List available plugins from installed Claude Code marketplaces
-construct --list-available-plugins
+construct --list
 
-# Enable specific plugins for this session
-construct --enable-plugin tmux@scaryrawr-plugins --enable-plugin chrome-devtools@scaryrawr-plugins
+# Load specific plugins for this session
+construct --load tmux@scaryrawr-plugins --load chrome-devtools@scaryrawr-plugins
 
 # Run with saved config
 construct
@@ -214,7 +214,7 @@ construct
 construct -- --continue
 
 # Combine construct flags with copilot passthrough
-construct --enable-plugin tmux@scaryrawr-plugins -- --allow-all-tools --continue
+construct --load tmux@scaryrawr-plugins -- --allow-all-tools --continue
 
 # Pass a prompt directly to copilot
 construct -- "fix the failing tests"

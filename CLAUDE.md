@@ -10,10 +10,10 @@ This document provides specific guidance for coding agents working with the Cons
 bun install
 
 # List available plugins
-bun run index.ts --list-available-plugins
+bun run index.ts --list
 
 # Enable a plugin
-bun run index.ts --enable-plugin tmux@scaryrawr-plugins -- --continue
+bun run index.ts --load tmux@scaryrawr-plugins -- --continue
 
 # Run with saved config
 bun run index.ts
@@ -72,7 +72,7 @@ bun write:file --path=src/newfeature.ts --content="// New feature implementation
 bun edit:file --path=src/cli.ts --oldText="// Old code" --newText="// New implementation"
 
 # Test the changes
-bun run index.ts --list-available-plugins
+bun run index.ts --list
 ```
 
 #### 2. Debugging Plugins
@@ -90,7 +90,7 @@ cat ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/.mcp.json | bun $te
 #### 3. Testing Translation Logic
 ```bash
 # Test MCP translation
-bun run index.ts --enable-plugin <plugin>@<marketplace> -- --help
+bun run index.ts --load <plugin>@<marketplace> -- --help
 
 # Check environment variables
 env | grep COPILOT_SKILLS_DIRS
@@ -175,7 +175,7 @@ Test:
 ### End-to-End Testing
 ```bash
 # Test complete workflow
-bun run index.ts --enable-plugin tmux@scaryrawr-plugins -- --help
+bun run index.ts --load tmux@scaryrawr-plugins -- --help
 
 # Verify configuration saved
 cat .construct.json | bun $text
@@ -191,7 +191,7 @@ cat .construct.json | bun $text
 
 **Commands**:
 ```bash
-bun run index.ts --list-available-plugins
+bun run index.ts --list
 cat ~/.claude/plugins/installed_plugins.json | bun $text
 ```
 

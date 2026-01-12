@@ -20,16 +20,16 @@ bun install
 
 ```bash
 # List available plugins from installed Claude Code marketplaces
-construct --list-available-plugins
+construct --list
 
-# Enable specific plugins for this session
-construct --enable-plugin tmux@scaryrawr-plugins
+# Load specific plugins for this session
+construct --load tmux@scaryrawr-plugins
 
-# Enable multiple plugins
-construct --enable-plugin tmux@scaryrawr-plugins --enable-plugin chrome-devtools@scaryrawr-plugins
+# Load multiple plugins
+construct --load tmux@scaryrawr-plugins --load chrome-devtools@scaryrawr-plugins
 
 # Pass arguments through to copilot (everything after -- goes to copilot)
-construct --enable-plugin tmux@scaryrawr-plugins -- --continue
+construct --load tmux@scaryrawr-plugins -- --continue
 
 # Run with saved config (uses .construct.json)
 construct

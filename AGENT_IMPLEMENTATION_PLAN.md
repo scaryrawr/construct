@@ -242,10 +242,10 @@ function setupCleanup(translatedAgents: TranslatedAgent[]) {
 
 ```bash
 # 1. List available plugins
-bun run index.ts --list-available-plugins
+bun run index.ts --list
 
 # 2. Enable plugin with agents and start copilot
-bun run index.ts --enable-plugin chrome-devtools@scaryrawr-plugins
+bun run index.ts --load chrome-devtools@scaryrawr-plugins
 
 # 3. In another terminal, verify agent files created
 ls -la .github/agents/
@@ -255,7 +255,7 @@ cat .github/agents/chrome-devtools@scaryrawr-plugins-performance.md
 # (Agents should be removed)
 
 # 5. Test interrupt cleanup
-bun run index.ts --enable-plugin chrome-devtools@scaryrawr-plugins
+bun run index.ts --load chrome-devtools@scaryrawr-plugins
 # Press Ctrl+C
 # Verify agents removed
 ```

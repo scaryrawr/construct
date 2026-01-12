@@ -2,10 +2,10 @@
 
 ## Build/Lint/Test Commands
 ### Core Commands```bash
-bun run index.ts --list-available-plugins  bun run build                        # Build current platform
+bun run index.ts --list  bun run build                        # Build current platform
 bun run build:all                    # Build all platforms (linux-x64, arm-64, macos-..., windows)bun run build:macos-arm64         # Build specific platform
 ```### Running Single Test (Manual)```bash
-# Manual verification steps:1 bun run index.ts --list-available-plugins2 Verify output contains "Available plugins:"3 Test with plugin: bun run index --enable-plugin playwright@claude-plugins-original
+# Manual verification steps:1 bun run index.ts --list2 Verify output contains "Available plugins:"3 Test with plugin: bun run index --load playwright@claude-plugins-original
 ```### Typechecking```bash
 # Bun infers tsconfig.json automaticallybun run index.ts --help          # Triggers typechecking
 ```
@@ -44,7 +44,7 @@ bun run build:all                    # Build all platforms (linux-x64, arm-64, m
 - `CLAUDE_PLUGIN_ROOT`: Placeholder for plugin root path (expanded during translation)
 
 ### Testing Manual```bash
-# Test plugin scanning: bun run index --list-available-plugins# Verify configuration persistence: cat .construct.json
+# Test plugin scanning: bun run index --list# Verify configuration persistence: cat .construct.json
 ```
 
 ### Common Issues1 No Plugins Found: installed_plugins.json missing or empty - Install plugins via Claude Code first2 Plugin Not Found: Name mismatch (case-sensitive) - Use exact format from installed_plugins.json3 MCP Servers Not Working: Invalid .mcp.0json - Validate JSON and required fields4 Skills Not Loading: COPILOT_SKILLS_DIRS not set - Check environment variable construction

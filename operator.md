@@ -1,7 +1,7 @@
 # `construct operator` plan
 
 ## Goal / user story
-Provide an interactive UI to select one or more plugins, then immediately launch `copilot` with that selection (equivalent to passing multiple `--enable-plugin ...` flags).
+Provide an interactive UI to select one or more plugins, then immediately launch `copilot` with that selection (equivalent to passing multiple `--load ...` flags).
 
 This is a convenience workflow on top of the existing pipeline:
 `scanAllPlugins()` → resolve `PluginInfo[]` → `translatePlugins()` → `executeCopilot()`.
@@ -20,7 +20,7 @@ construct operator -- "fix the failing tests"
 ### Flags
 No operator-specific flags for v1.
 
-- Selection is **always** persisted to `.construct.json` (matching existing behavior when using `--enable-plugin`).
+- Selection is **always** persisted to `.construct.json` (matching existing behavior when using `--load`).
 - `fzf` is a **hard dependency** for this subcommand (`construct operator`).
 
 ## UX behavior
