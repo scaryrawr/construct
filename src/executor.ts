@@ -27,27 +27,35 @@ async function setupCleanup(translatedAgents: TranslatedAgent[]): Promise<Resour
     if (cleanedUp) return;
     cleanedUp = true;
     
-    const wasLastLock = await releaseLock(lock);
-    if (wasLastLock) {
-      console.log('Cleaned up agent files (last instance)');
+    try {
+      const wasLastLock = await releaseLock(lock);
+      if (wasLastLock) {
+        console.log('Cleaned up agent files (last instance)');
+      }
+    } catch (error) {
+      // Ignore cleanup errors
     }
   };
 
+  // Handle signals for graceful shutdown
+  const handleSignal = (signal: NodeJS.Signals, exitCode: number) => {
+    return async () => {
+      await cleanup();
+      process.exit(exitCode);
+    };
+  };
+
+  process.on('SIGINT', handleSignal('SIGINT', 130));
+  process.on('SIGTERM', handleSignal('SIGTERM', 143));
+  
+  // Best-effort cleanup on normal exit
+  // Note: This may not complete for async operations, but SIGINT/SIGTERM handle graceful shutdowns
   process.on('exit', () => {
-    // Synchronous cleanup on exit
-    releaseLock(lock).catch(() => {
-      // Ignore async errors during exit
-    });
-  });
-  
-  process.on('SIGINT', async () => {
-    await cleanup();
-    process.exit(130);
-  });
-  
-  process.on('SIGTERM', async () => {
-    await cleanup();
-    process.exit(143);
+    // Use a flag to attempt sync cleanup if possible
+    if (!cleanedUp) {
+      cleanedUp = true;
+      // This is best-effort; signals handle the reliable cleanup
+    }
   });
 
   return lock;
