@@ -12,8 +12,25 @@ Claude Code has a growing ecosystem of plugins with skills and MCP servers. Copi
 
 ## Installation
 
+### Global Installation (Recommended)
+
+Install directly from GitHub:
+
 ```bash
+bun add -g github:scaryrawr/construct
+```
+
+This makes the `construct` command available globally in your PATH.
+
+### Local Development
+
+Clone and link locally:
+
+```bash
+git clone https://github.com/scaryrawr/construct.git
+cd construct
 bun install
+bun link
 ```
 
 ## Usage
