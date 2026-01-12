@@ -58,7 +58,7 @@ async function main(): Promise<void> {
   const translation = await translatePlugins(enabledPlugins);
 
   // Execute copilot
-  const exitCode = executeCopilot({
+  const exitCode = await executeCopilot({
     env: translation.env,
     additionalMcpConfig: translation.additionalMcpConfig,
     passthroughArgs: args.passthroughArgs,

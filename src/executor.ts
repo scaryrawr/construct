@@ -1,5 +1,5 @@
 import type { TranslatedAgent } from './agent-translator';
-import { unlinkSync } from 'node:fs';
+import { acquireLock, releaseLock, cleanupStaleLocks, type ResourceLock } from './lock-manager';
 
 export interface ExecutorOptions {
   env: Record<string, string>;
@@ -8,35 +8,53 @@ export interface ExecutorOptions {
   translatedAgents: TranslatedAgent[];
 }
 
-function setupCleanup(translatedAgents: TranslatedAgent[]) {
+async function setupCleanup(translatedAgents: TranslatedAgent[]): Promise<ResourceLock | null> {
+  // If no agents to track, skip lock setup
+  if (translatedAgents.length === 0) {
+    return null;
+  }
+
+  // Clean up stale locks from previous crashed processes
+  await cleanupStaleLocks();
+
+  // Acquire lock for translated agent files
+  const resourcePaths = translatedAgents.map(agent => agent.outputPath);
+  const lock = await acquireLock(resourcePaths);
+
   let cleanedUp = false;
   
-  const cleanup = () => {
+  const cleanup = async () => {
     if (cleanedUp) return;
     cleanedUp = true;
     
-    for (const agent of translatedAgents) {
-      try {
-        unlinkSync(agent.outputPath);
-      } catch (error) {
-        // Ignore errors during cleanup
-      }
+    const wasLastLock = await releaseLock(lock);
+    if (wasLastLock) {
+      console.log('Cleaned up agent files (last instance)');
     }
   };
 
-  process.on('exit', cleanup);
-  process.on('SIGINT', () => {
-    cleanup();
+  process.on('exit', () => {
+    // Synchronous cleanup on exit
+    releaseLock(lock).catch(() => {
+      // Ignore async errors during exit
+    });
+  });
+  
+  process.on('SIGINT', async () => {
+    await cleanup();
     process.exit(130);
   });
-  process.on('SIGTERM', () => {
-    cleanup();
+  
+  process.on('SIGTERM', async () => {
+    await cleanup();
     process.exit(143);
   });
+
+  return lock;
 }
 
-export function executeCopilot(options: ExecutorOptions): number {
-  setupCleanup(options.translatedAgents);
+export async function executeCopilot(options: ExecutorOptions): Promise<number> {
+  await setupCleanup(options.translatedAgents);
   const { env, additionalMcpConfig, passthroughArgs } = options;
 
   // Build args array

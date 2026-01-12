@@ -179,7 +179,7 @@ export async function runOperator(options: OperatorOptions): Promise<number> {
   });
 
   const translation = await translatePlugins(selectedPlugins);
-  return executeCopilot({
+  return await executeCopilot({
     env: translation.env,
     additionalMcpConfig: translation.additionalMcpConfig,
     passthroughArgs: options.passthroughArgs,
