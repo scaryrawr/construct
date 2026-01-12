@@ -2,6 +2,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 export interface CliArgs {
+  command: "run" | "operator";
   listAvailablePlugins: boolean;
   enabledPlugins: string[];
   passthroughArgs: string[];
@@ -13,9 +14,13 @@ export function parseCliArgs(argv: string[]): CliArgs {
   const constructArgs = separatorIndex >= 0 ? argv.slice(0, separatorIndex) : argv;
   const passthroughArgs = separatorIndex >= 0 ? argv.slice(separatorIndex + 1) : [];
 
-  const parsed = yargs(hideBin(constructArgs))
+  const constructArgv = hideBin(constructArgs);
+  const command: "run" | "operator" = constructArgv[0] === "operator" ? "operator" : "run";
+  const yargsArgv = command === "operator" ? constructArgv.slice(1) : constructArgv;
+
+  const parsed = yargs(yargsArgv)
     .scriptName("construct")
-    .usage("$0 [options] [-- copilot-args...]")
+    .usage("$0 [operator] [options] [-- copilot-args...]")
     .completion("completion", "Generate shell completion script")
     .option("list-available-plugins", {
       type: "boolean",
@@ -45,6 +50,11 @@ export function parseCliArgs(argv: string[]): CliArgs {
       "$0 -- 'fix the failing tests'",
       "Pass a prompt directly to copilot"
     )
+    .example("$0 operator", "Launch interactive plugin selector (requires fzf)")
+    .example(
+      "$0 operator -- --continue",
+      "Launch selector then pass args through to copilot"
+    )
     .help()
     .alias("h", "help")
     .version()
@@ -52,6 +62,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
     .parseSync();
 
   return {
+    command,
     listAvailablePlugins: parsed["list-available-plugins"] as boolean,
     enabledPlugins: (parsed["enable-plugin"] as string[]) || [],
     passthroughArgs,
