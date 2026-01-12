@@ -81,6 +81,10 @@ Claude Code agents (markdown files with YAML frontmatter in `agents/*.md`) are t
 - Agents are written to `.github/agents/` in the current directory
 - Tool references are translated from Claude format (`mcp__plugin_name_server__tool`) to Copilot format (`server/tool`)
 - Frontmatter fields (name, description, model, tools) are preserved
+- **Concurrent instances**: Multiple `construct` processes can run safely in the same directory
+  - Reference counting ensures agent files are only deleted when the last instance exits
+  - Lock files in `.construct-locks/` track active instances
+  - Automatic cleanup of stale locks from crashed processes
 
 ## Configuration
 

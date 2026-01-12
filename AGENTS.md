@@ -17,7 +17,7 @@ bun run build:all                    # Build all platforms (linux-x64, arm-64, m
 
 ### Variable/Constant Naming (camelCase/SCREAMING_SCAL_Constants: CONFIG_FILE = ".construct.json", Variables: cliPlugins, enabledPluginNames
 
-### Function Naming (camelCase)parseCliArgs, scanAllPlugins, loadConfig, saveConfig, mergeCliWithConfig### File Organization (src/)cli.ts: CLI argument parsing (yargs)scanner.ts: Plugin discovery/indexing (scanAllPlugins, scanInstalledPlugins)config.ts: Configuration management (.construct.json)translator.ts: Format translation (translatePlugins, expandPluginRootInObject)executor.ts: Copilot subprocess spawningcompletions.ts: Shell completion script generation
+### Function Naming (camelCase)parseCliArgs, scanAllPlugins, loadConfig, saveConfig, mergeCliWithConfig### File Organization (src/)cli.ts: CLI argument parsing (yargs)scanner.ts: Plugin discovery/indexing (scanAllPlugins, scanInstalledPlugins)config.ts: Configuration management (.construct.json)translator.ts: Format translation (translatePlugins, expandPluginRootInObject)agent-translator.ts: Agent file translation (translateAgents, parseAgentFrontmatter)lock-manager.ts: Resource locking and cleanup (acquireLock, releaseLock)executor.ts: Copilot subprocess spawningcompletions.ts: Shell completion script generation
 
 ### Error Handling Patterns1 Console.warn for non-critical errors (missing files, scanning issues)2 Console.error for critical failures (file I/O, parsing errors)
 3 Try/catch wrap file system operations and JSON parsing4 Functions return null on graceful failure (loadConfig, readMcpConfig)
@@ -37,8 +37,14 @@ bun run build:all                    # Build all platforms (linux-x64, arm-64, m
 
 ### File Paths (Absolute, no relative)Use `join` for path construction: `const configPath = join(process.cwd(), CONFIG_FILE)`
 
-### Project Structure```src/├── cli.ts              CLI argument parsing├── scanner.ts          Plugin discovery and indexing├── config.ts           Configuration management├── translator.ts       Format translation logic└── executor.ts         Copilot subprocess execution
+### Project Structure```src/├── cli.ts              CLI argument parsing├── scanner.ts          Plugin discovery and indexing├── config.ts           Configuration management├── translator.ts       Format translation logic├── agent-translator.ts Agent file translation├── lock-manager.ts     Resource locking with reference counting└── executor.ts         Copilot subprocess execution
 ```
+
+### Resource Management- Agent files are created in `.github/agents/` during translation
+- Lock files are created in `.construct-locks/` to track active instances
+- Reference counting: Each instance acquires a lock, cleanup happens when last lock released
+- Stale lock cleanup: On startup, locks from crashed processes are automatically removed
+- Lock files contain: lockId, PID, resource paths, timestamp
 
 ### Environment Variables- `COPILOT_SKILLS_DIRS`: Comma-separated list of skill directories
 - `CLAUDE_PLUGIN_ROOT`: Placeholder for plugin root path (expanded during translation)
