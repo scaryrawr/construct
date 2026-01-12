@@ -13,7 +13,7 @@ async function main(): Promise<void> {
     process.exit(exitCode);
   }
 
-  // Handle --list-available-plugins
+  // Handle --list
   if (args.listAvailablePlugins) {
     const plugins = await listAvailablePlugins();
     if (plugins.length === 0) {

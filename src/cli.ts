@@ -22,29 +22,26 @@ export function parseCliArgs(argv: string[]): CliArgs {
     .scriptName("construct")
     .usage("$0 [operator] [options] [-- copilot-args...]")
     .completion("completion", "Generate shell completion script")
-    .option("list-available-plugins", {
+    .option("list", {
       type: "boolean",
       description: "List all discoverable plugins from installed marketplaces",
       default: false,
     })
-    .option("enable-plugin", {
+    .option("load", {
       type: "array",
-      description: "Enable plugin(s) for this run (format: <plugin>@<marketplace>)",
+      description: "Load plugin(s) for this run (format: <plugin>@<marketplace>)",
       string: true,
       default: [],
     })
-    .example("$0 --list-available-plugins", "List all available plugins")
+    .example("$0 --list", "List all available plugins")
+    .example("$0 --load tmux@scaryrawr-plugins", "Load a specific plugin")
     .example(
-      "$0 --enable-plugin tmux@scaryrawr-plugins",
-      "Enable a specific plugin"
+      "$0 --load plugin1@marketplace --load plugin2@marketplace",
+      "Load multiple plugins"
     )
     .example(
-      "$0 --enable-plugin plugin1@marketplace --enable-plugin plugin2@marketplace",
-      "Enable multiple plugins"
-    )
-    .example(
-      "$0 --enable-plugin tmux@scaryrawr-plugins -- --continue",
-      "Enable plugin and pass args to copilot"
+      "$0 --load tmux@scaryrawr-plugins -- --continue",
+      "Load plugin and pass args to copilot"
     )
     .example(
       "$0 -- 'fix the failing tests'",
@@ -63,8 +60,8 @@ export function parseCliArgs(argv: string[]): CliArgs {
 
   return {
     command,
-    listAvailablePlugins: parsed["list-available-plugins"] as boolean,
-    enabledPlugins: (parsed["enable-plugin"] as string[]) || [],
+    listAvailablePlugins: parsed["list"] as boolean,
+    enabledPlugins: (parsed["load"] as string[]) || [],
     passthroughArgs,
   };
 }
