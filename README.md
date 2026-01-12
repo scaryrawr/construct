@@ -37,9 +37,15 @@ construct
 # Pass a prompt directly
 construct -- "fix the failing tests"
 
+# Interactive operator mode (fzf selector)
+construct operator
+construct operator -- --continue
+
 # Type-check the codebase
 bun run typecheck
 ```
+
+`construct operator` launches an interactive `fzf` multi-select for plugins, saves your selection to `.construct.json`, and then runs Copilot with those plugins enabled.
 
 ## How It Works
 
@@ -79,6 +85,7 @@ Construct saves your last-used plugins to `.construct.json` in the current direc
 
 - [Bun](https://bun.sh) runtime
 - [GitHub Copilot CLI](https://github.com/github/copilot-cli/) installed and in PATH
+- [fzf](https://github.com/junegunn/fzf) installed and in PATH (required for `construct operator`)
 - Claude Code plugins installed via Claude Code's plugin system
 
 ## License
