@@ -220,11 +220,13 @@ export async function translateSingleAgent(
       frontmatter.tools = translatedTools;
     }
     
-    // Build output content with translated frontmatter
+    // Build output content with translated frontmatter - remove model field
     const outputLines = ['---'];
     
-    // Write frontmatter fields
+    // Write frontmatter fields, excluding model
     for (const [key, value] of Object.entries(frontmatter)) {
+      if (key === 'model') continue; // Skip model field to inherit current model
+      
       if (key === 'tools' && Array.isArray(value)) {
         // Format tools as array syntax
         const toolsArray = value.map(t => `'${t}'`).join(', ');
