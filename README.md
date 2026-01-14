@@ -66,7 +66,7 @@ bun run typecheck
 
 ## How It Works
 
-1. **Scans** `~/.claude/plugins/installed_plugins.json` for installed Claude Code plugins
+1. **Scans** `~/.claude/plugins/known_marketplaces.json` for configured marketplaces and their plugin install locations
 2. **Discovers** skills, MCP servers, and agents in each plugin
 3. **Translates** Claude Code formats to Copilot CLI equivalents:
    - Skills → `COPILOT_SKILLS_DIRS` environment variable
