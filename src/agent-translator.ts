@@ -183,16 +183,22 @@ export async function writeAgentFile(
  * @param component - Agent component to translate
  * @param pluginInfo - Plugin information
  * @param mcpServers - List of available MCP server names
+ * @param cachedPath - Path to cached plugin directory with expanded frontmatter
  * @returns TranslatedAgent or null if translation fails
  */
 export async function translateSingleAgent(
   component: { type: string; path: string; name: string },
   pluginInfo: PluginInfo,
-  mcpServers: string[]
+  mcpServers: string[],
+  cachedPath: string
 ): Promise<TranslatedAgent | null> {
   try {
-    // Read agent file
-    const file = Bun.file(component.path);
+    // Compute relative path from plugin's install path and read from cached path
+    const relativePath = component.path.replace(pluginInfo.installPath, '').replace(/^\//, '');
+    const cachedFilePath = join(cachedPath, relativePath);
+    
+    // Read agent file from cached path
+    const file = Bun.file(cachedFilePath);
     const content = await file.text();
     
     // Parse frontmatter
@@ -269,15 +275,24 @@ export async function translateSingleAgent(
  *
  * @param plugins - Array of enabled plugins
  * @param mcpServers - List of available MCP server names
+ * @param cachedPaths - Map of plugin name to cached path
  * @returns Array of translated agents for cleanup tracking
  */
 export async function translateAgents(
   plugins: PluginInfo[],
-  mcpServers: string[]
+  mcpServers: string[],
+  cachedPaths: Map<string, string>
 ): Promise<TranslatedAgent[]> {
   const translatedAgents: TranslatedAgent[] = [];
   
   for (const plugin of plugins) {
+    // Look up cached path for this plugin
+    const cachedPath = cachedPaths.get(plugin.name);
+    if (!cachedPath) {
+      console.warn(`Skipping plugin ${plugin.name}: no cached path found`);
+      continue;
+    }
+    
     // Find agent components
     const agentComponents = plugin.components.filter(c => c.type === 'agent');
     
@@ -285,7 +300,8 @@ export async function translateAgents(
       const translated = await translateSingleAgent(
         component,
         plugin,
-        mcpServers
+        mcpServers,
+        cachedPath
       );
       
       if (translated) {
