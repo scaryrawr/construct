@@ -6,6 +6,7 @@ export interface CliArgs {
   listAvailablePlugins: boolean;
   enabledPlugins: string[];
   passthroughArgs: string[];
+  clearCache: boolean;
 }
 
 export function parseCliArgs(argv: string[]): CliArgs {
@@ -32,6 +33,11 @@ export function parseCliArgs(argv: string[]): CliArgs {
       description: "Load plugin(s) for this run (format: <plugin>@<marketplace>)",
       string: true,
       default: [],
+    })
+    .option("clear-cache", {
+      type: "boolean",
+      description: "Clear all cached plugin instances (useful after crashes)",
+      default: false,
     })
     .example("$0 --list", "List all available plugins")
     .example("$0 --load tmux@scaryrawr-plugins", "Load a specific plugin")
@@ -63,5 +69,6 @@ export function parseCliArgs(argv: string[]): CliArgs {
     listAvailablePlugins: parsed["list"] as boolean,
     enabledPlugins: (parsed["load"] as string[]) || [],
     passthroughArgs,
+    clearCache: parsed["clear-cache"] as boolean,
   };
 }

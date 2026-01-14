@@ -5,6 +5,7 @@ import { loadConfig, saveConfig, mergeCliWithConfig } from "./src/config";
 import { translatePlugins } from "./src/translator";
 import { executeCopilot } from "./src/executor";
 import { runOperator } from "./src/operator";
+import { clearAllCaches } from "./src/cache";
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv);
@@ -12,6 +13,13 @@ async function main(): Promise<void> {
   if (args.command === "operator") {
     const exitCode = await runOperator({ passthroughArgs: args.passthroughArgs });
     process.exit(exitCode);
+  }
+
+  // Handle --clear-cache
+  if (args.clearCache) {
+    await clearAllCaches();
+    console.log("Cache cleared.");
+    process.exit(0);
   }
 
   // Handle --list

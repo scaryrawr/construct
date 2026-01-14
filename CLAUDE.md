@@ -17,6 +17,9 @@ bun run index.ts --load tmux@scaryrawr-plugins -- --continue
 
 # Run with saved config
 bun run index.ts
+
+# Clear plugin caches (after crashes/interrupts)
+bun run index.ts --clear-cache
 ```
 
 ### Project Structure
@@ -157,6 +160,20 @@ const mergedEnv = {
   ...env,
 };
 ```
+
+### Variable Expansion
+Environment variables are automatically expanded during plugin loading:
+- **Syntax**: `${VAR}` or `${VAR:-default}` 
+- **Scope**: MCP configs, agent frontmatter, and skill frontmatter
+- **Special Variable**: `${CLAUDE_PLUGIN_ROOT}` expands to the cached plugin directory path
+- See `variable-expansion.md` for complete syntax and behavior details
+
+### Plugin Cache System
+Plugins are cached per construct instance for reliable environment variable expansion:
+- **Cache Location**: `~/.cache/construct/plugins/<instance-id>/<marketplace>/<plugin>/`
+- **Lifecycle**: Auto-created on startup, auto-deleted on exit (normal or signal-based)
+- **Purpose**: Enables environment variable expansion in plugin files without modifying originals
+- **Isolation**: Each construct instance has isolated cache, enabling parallel runs
 
 ## Testing Strategies
 

@@ -58,21 +58,69 @@ construct -- "fix the failing tests"
 construct operator
 construct operator -- --continue
 
+# Clear plugin caches (removes all cached instances, useful after crashes)
+construct --clear-cache
+
 # Type-check the codebase
 bun run typecheck
 ```
 
 `construct operator` launches an interactive `fzf` multi-select for plugins, saves your selection to `.construct.json`, and then runs Copilot with those plugins enabled.
 
+## Environment Variables
+
+Construct supports automatic environment variable expansion in plugin configurations:
+
+### Supported Syntax
+
+- `${VAR}` - Basic expansion (uses value if set, otherwise unchanged)
+- `${VAR:-default}` - Expansion with default value (uses default if VAR is unset or empty)
+
+### Examples
+
+```json
+{
+  "chrome-devtools": {
+    "command": "npx",
+    "args": [
+      "chrome-devtools-mcp@latest",
+      "--browser-url=http://${DEVTOOLS_BASE_URL:-127.0.0.1}:${DEVTOOLS_PORT:-9222}"
+    ]
+  },
+  "greptile": {
+    "type": "http",
+    "url": "https://api.greptile.com/mcp",
+    "headers": {
+      "Authorization": "Bearer ${GREPTILE_API_KEY}"
+    }
+  }
+}
+```
+
+### Special Variables
+
+**`${CLAUDE_PLUGIN_ROOT}`** - Automatically expands to the cached plugin directory path. Useful for referencing plugin-relative paths in configurations.
+
+### Expansion Scope
+
+Environment variable expansion applies to:
+- MCP server configurations (`.mcp.json`)
+- Agent file frontmatter (YAML headers in `agents/*.md`)
+- Skill file frontmatter (YAML headers in `skills/*/SKILL.md`)
+
+Note: Plugin file bodies (markdown content) are not expanded, only metadata/frontmatter.
+
 ## How It Works
 
 1. **Scans** `~/.claude/plugins/known_marketplaces.json` for configured marketplaces and their plugin install locations
 2. **Discovers** skills, MCP servers, and agents in each plugin
-3. **Translates** Claude Code formats to Copilot CLI equivalents:
+3. **Caches** plugins per construct instance for reliable environment variable expansion
+4. **Translates** Claude Code formats to Copilot CLI equivalents:
    - Skills → `COPILOT_SKILLS_DIRS` environment variable
-   - MCP configs → `--additional-mcp-config` JSON argument
+   - MCP configs → `--additional-mcp-config` JSON argument (supports both local and HTTP servers)
    - Agents → `.github/agents/<plugin>-<agent>.md` files with translated tool references
-4. **Spawns** `copilot` with the translated configuration
+   - Environment variables → Automatically expanded in configurations
+5. **Spawns** `copilot` with the translated configuration
 
 ### Agent Translation
 

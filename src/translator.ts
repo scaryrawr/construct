@@ -1,16 +1,31 @@
 import { join } from "node:path";
 import type { PluginInfo, PluginComponent } from "./scanner";
 import { translateAgents, type TranslatedAgent } from "./agent-translator";
+import { initCache, getCachedPlugin } from "./cache";
 
 /**
- * Claude Code MCP server configuration format
+ * Claude Code MCP server configuration format (local)
  */
-interface ClaudeMcpServer {
+interface ClaudeLocalMcpServer {
   command: string;
   args?: string[];
   env?: Record<string, string>;
   cwd?: string;
 }
+
+/**
+ * Claude Code MCP server configuration format (HTTP)
+ */
+interface ClaudeHttpMcpServer {
+  type: "http";
+  url: string;
+  headers?: Record<string, string>;
+}
+
+/**
+ * Claude Code MCP server configuration format
+ */
+type ClaudeMcpServer = ClaudeLocalMcpServer | ClaudeHttpMcpServer;
 
 /**
  * Claude Code .mcp.json format
@@ -20,9 +35,9 @@ interface ClaudeMcpConfig {
 }
 
 /**
- * GitHub Copilot MCP server configuration format
+ * GitHub Copilot MCP server configuration format (local)
  */
-interface CopilotMcpServer {
+interface CopilotLocalMcpServer {
   type: "local";
   command: string;
   args?: string[];
@@ -30,6 +45,21 @@ interface CopilotMcpServer {
   cwd?: string;
   tools: string[];
 }
+
+/**
+ * GitHub Copilot MCP server configuration format (HTTP)
+ */
+interface CopilotHttpMcpServer {
+  type: "http";
+  url: string;
+  headers?: Record<string, string>;
+  tools: string[];
+}
+
+/**
+ * GitHub Copilot MCP server configuration format
+ */
+type CopilotMcpServer = CopilotLocalMcpServer | CopilotHttpMcpServer;
 
 /**
  * GitHub Copilot MCP configuration format
@@ -52,49 +82,32 @@ export interface TranslationResult {
   translatedAgents: TranslatedAgent[];
 }
 
-/**
- * Expands ${CLAUDE_PLUGIN_ROOT} placeholders in a string
- */
-function expandPluginRoot(value: string, pluginPath: string): string {
-  return value.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginPath);
-}
+
 
 /**
- * Recursively expands ${CLAUDE_PLUGIN_ROOT} in an object
- */
-function expandPluginRootInObject<T>(obj: T, pluginPath: string): T {
-  if (typeof obj === "string") {
-    return expandPluginRoot(obj, pluginPath) as T;
-  }
-  if (Array.isArray(obj)) {
-    return obj.map((item) => expandPluginRootInObject(item, pluginPath)) as T;
-  }
-  if (obj && typeof obj === "object") {
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      result[key] = expandPluginRootInObject(value, pluginPath);
-    }
-    return result as T;
-  }
-  return obj;
-}
-
-/**
- * Transforms a Claude Code MCP server config to GitHub Copilot format
+ * Transforms a Claude Code MCP server config to GitHub Copilot format.
+ * Server config is already expanded by the cache layer.
  */
 function transformMcpServer(
-  server: ClaudeMcpServer,
-  pluginPath: string
+  server: ClaudeMcpServer
 ): CopilotMcpServer {
-  // Expand ${CLAUDE_PLUGIN_ROOT} in all string values
-  const expandedServer = expandPluginRootInObject(server, pluginPath);
-
+  // Check if it's an HTTP server
+  if ('type' in server && server.type === 'http') {
+    return {
+      type: "http",
+      url: server.url,
+      headers: server.headers,
+      tools: ["*"],
+    };
+  }
+  
+  // Local server
   return {
     type: "local",
-    command: expandedServer.command,
-    args: expandedServer.args,
-    env: expandedServer.env,
-    cwd: expandedServer.cwd,
+    command: server.command,
+    args: server.args,
+    env: server.env,
+    cwd: server.cwd,
     tools: ["*"],
   };
 }
@@ -116,12 +129,18 @@ async function readMcpConfig(
 }
 
 /**
- * Extracts skill paths from plugin components
+ * Extracts skill paths from plugin components using cached plugin path
  */
-function getSkillPaths(plugin: PluginInfo): string[] {
+function getSkillPaths(plugin: PluginInfo, cachedPath: string): string[] {
   return plugin.components
     .filter(c => c.type === 'skill')
-    .map(c => c.path);
+    .map(c => {
+      // Replace original installPath with cachedPath in the component path
+      if (c.path.startsWith(plugin.installPath)) {
+        return c.path.replace(plugin.installPath, cachedPath);
+      }
+      return c.path;
+    });
 }
 
 /**
@@ -145,10 +164,18 @@ export async function translatePlugins(
   const env: Record<string, string> = {};
   const allMcpServers: Record<string, CopilotMcpServer> = {};
 
-  // 1. Build COPILOT_SKILLS_DIRS from all skill paths
+  // Initialize cache
+  initCache();
+
+  // Map plugin to cached path for reuse
+  const pluginCachePaths = new Map<PluginInfo, string>();
+
+  // 1. Build COPILOT_SKILLS_DIRS from all skill paths (using cached paths)
   const allSkillPaths: string[] = [];
   for (const plugin of plugins) {
-    allSkillPaths.push(...getSkillPaths(plugin));
+    const cachedPath = await getCachedPlugin(plugin);
+    pluginCachePaths.set(plugin, cachedPath);
+    allSkillPaths.push(...getSkillPaths(plugin, cachedPath));
   }
 
   if (allSkillPaths.length > 0) {
@@ -159,15 +186,18 @@ export async function translatePlugins(
   for (const plugin of plugins) {
     const mcpConfigPath = getMcpConfigPath(plugin);
     if (mcpConfigPath) {
-      const claudeConfig = await readMcpConfig(mcpConfigPath);
-      if (claudeConfig) {
-        // Transform each server in the config
-        for (const [serverName, serverConfig] of Object.entries(claudeConfig)) {
-          // Use original server name as per spec
-          allMcpServers[serverName] = transformMcpServer(
-            serverConfig,
-            plugin.installPath
-          );
+      // Read .mcp.json from cached path (already has vars expanded)
+      const cachedPath = pluginCachePaths.get(plugin);
+      if (cachedPath) {
+        const cachedMcpConfigPath = join(cachedPath, ".mcp.json");
+        const claudeConfig = await readMcpConfig(cachedMcpConfigPath);
+        if (claudeConfig) {
+          // Transform each server in the config
+          // No inline expansion needed - cache files already have vars expanded
+          for (const [serverName, serverConfig] of Object.entries(claudeConfig)) {
+            // Use original server name as per spec
+            allMcpServers[serverName] = transformMcpServer(serverConfig);
+          }
         }
       }
     }
@@ -186,7 +216,11 @@ export async function translatePlugins(
   const mcpServerNames = Object.keys(allMcpServers);
   let translatedAgents: TranslatedAgent[] = [];
   try {
-    translatedAgents = await translateAgents(plugins, mcpServerNames);
+    // Create a map of plugin names to cached paths
+    const cachedPathsMap = new Map(
+      plugins.map(plugin => [plugin.name, pluginCachePaths.get(plugin) || plugin.installPath])
+    );
+    translatedAgents = await translateAgents(plugins, mcpServerNames, cachedPathsMap);
   } catch (error) {
     console.warn('Warning: Failed to translate agents:', error);
   }
