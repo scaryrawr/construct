@@ -55,7 +55,7 @@ Bun.$`ls -la src/`
 bun read:file --path=src/scanner.ts
 
 # Search for patterns
-grep -r "installed_plugins" src/
+grep -r "known_marketplaces" src/
 
 # Check git status
 Bun.$`git status`
@@ -77,8 +77,8 @@ bun run index.ts --list
 
 #### 2. Debugging Plugins
 ```bash
-# Check installed plugins
-cat ~/.claude/plugins/installed_plugins.json | bun $text
+# Check configured marketplaces
+cat ~/.claude/plugins/known_marketplaces.json | bun $text
 
 # Inspect a specific plugin
 ls -la ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/
@@ -185,14 +185,14 @@ cat .construct.json | bun $text
 
 ### 1. Plugin Not Found
 **Check**:
-- Exact plugin name matches `installed_plugins.json`
+- Exact plugin name matches plugins in configured marketplaces
 - Case sensitivity
 - Marketplace name is correct
 
 **Commands**:
 ```bash
 bun run index.ts --list
-cat ~/.claude/plugins/installed_plugins.json | bun $text
+cat ~/.claude/plugins/known_marketplaces.json | bun $text
 ```
 
 ### 2. MCP Servers Not Working

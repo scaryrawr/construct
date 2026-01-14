@@ -31,18 +31,17 @@ export interface PluginRegistry {
 }
 
 /**
- * Structure of installed_plugins.json
+ * Structure of known_marketplaces.json
  */
-interface InstalledPluginsFile {
-  version: number;
-  plugins: {
-    [key: string]: Array<{
-      scope: string;
-      installPath: string;
-      version: string;
-      installedAt: string;
-      lastUpdated: string;
-    }>;
+interface KnownMarketplacesFile {
+  [marketplaceName: string]: {
+    source: {
+      source: string;
+      repo?: string;
+      path?: string;
+    };
+    installLocation: string;
+    lastUpdated: string;
   };
 }
 
@@ -68,26 +67,11 @@ function sanitizeDescription(description?: string): string | undefined {
   return singleLine.length > 0 ? singleLine : undefined;
 }
 
-async function readPluginDescription(installPath: string): Promise<string | undefined> {
-  try {
-    const pluginJsonPath = join(installPath, '.claude-plugin', 'plugin.json');
-    const pluginJsonFile = Bun.file(pluginJsonPath);
-    if (!await pluginJsonFile.exists()) {
-      return undefined;
-    }
-    const pluginData = await pluginJsonFile.json() as { description?: string };
-    return sanitizeDescription(pluginData.description);
-  } catch (error) {
-    console.warn(`Warning: Error reading plugin metadata in ${installPath}:`, error);
-    return undefined;
-  }
-}
-
 /**
- * Gets the path to the installed plugins configuration file
+ * Gets the path to the known marketplaces configuration file
  */
-function getInstalledPluginsPath(): string {
-  return join(homedir(), '.claude', 'plugins', 'installed_plugins.json');
+function getKnownMarketplacesPath(): string {
+  return join(homedir(), '.claude', 'plugins', 'known_marketplaces.json');
 }
 
 /**
@@ -145,90 +129,44 @@ async function scanPluginComponents(installPath: string): Promise<PluginComponen
 }
 
 /**
- * Scans all installed plugins and builds a registry
- */
-export async function scanInstalledPlugins(): Promise<PluginRegistry> {
-  const registry: PluginRegistry = {
-    plugins: new Map()
-  };
-
-  const installedPluginsPath = getInstalledPluginsPath();
-  const installedPluginsFile = Bun.file(installedPluginsPath);
-
-  // Handle missing installed_plugins.json gracefully
-  if (!await installedPluginsFile.exists()) {
-    return registry;
-  }
-
-  try {
-    const installedPluginsData: InstalledPluginsFile = await installedPluginsFile.json();
-
-    // Process each installed plugin
-    for (const [pluginName, installations] of Object.entries(installedPluginsData.plugins)) {
-      // Use the first installation (should typically only be one per scope)
-      if (installations.length === 0) continue;
-      
-      const installation = installations[0]!;
-      const { installPath, version } = installation;
-
-      // Scan for components in the plugin directory
-      const components = await scanPluginComponents(installPath);
-      const description = await readPluginDescription(installPath);
-
-      registry.plugins.set(pluginName, {
-        name: pluginName,
-        installPath,
-        version,
-        description,
-        components
-      });
-    }
-  } catch (error) {
-    console.warn('Warning: Error reading installed plugins:', error);
-  }
-
-  return registry;
-}
-
-/**
- * Scans marketplace directories for available plugins
+ * Scans marketplace directories for available plugins using known_marketplaces.json
  */
 export async function scanMarketplacePlugins(): Promise<PluginRegistry> {
   const registry: PluginRegistry = {
     plugins: new Map()
   };
 
-  const marketplacesDir = join(homedir(), '.claude', 'plugins', 'marketplaces');
-  let marketplacesDirExists = false;
-  try {
-    const marketplacesStat = await stat(marketplacesDir);
-    marketplacesDirExists = marketplacesStat.isDirectory();
-  } catch {
-    marketplacesDirExists = false;
-  }
-  if (!marketplacesDirExists) {
+  const knownMarketplacesPath = getKnownMarketplacesPath();
+  const knownMarketplacesFile = Bun.file(knownMarketplacesPath);
+
+  // Handle missing known_marketplaces.json gracefully
+  if (!await knownMarketplacesFile.exists()) {
     return registry;
   }
 
   try {
-    // Scan for marketplace directories (dot: true needed for .claude-plugin)
-    const marketplaceGlob = new Glob("*/.claude-plugin/marketplace.json");
-    const marketplaceFiles = Array.from(marketplaceGlob.scanSync({ cwd: marketplacesDir, absolute: false, dot: true }));
+    const knownMarketplacesData: KnownMarketplacesFile = await knownMarketplacesFile.json();
 
-    for (const marketplaceFile of marketplaceFiles) {
+    // Process each known marketplace
+    for (const [marketplaceName, marketplaceInfo] of Object.entries(knownMarketplacesData)) {
+      const { installLocation } = marketplaceInfo;
+
       try {
-        const marketplacePath = join(marketplacesDir, marketplaceFile);
-        const marketplaceJsonFile = Bun.file(marketplacePath);
+        // Check if the marketplace directory exists
+        const marketplaceStat = await stat(installLocation);
+        if (!marketplaceStat.isDirectory()) {
+          continue;
+        }
+
+        // Read the marketplace.json file
+        const marketplaceJsonPath = join(installLocation, '.claude-plugin', 'marketplace.json');
+        const marketplaceJsonFile = Bun.file(marketplaceJsonPath);
 
         if (!await marketplaceJsonFile.exists()) {
           continue;
         }
 
         const marketplaceData: MarketplaceFile = await marketplaceJsonFile.json();
-        const marketplaceName = marketplaceData.name;
-
-        // Get the marketplace base directory (parent of .claude-plugin)
-        const marketplaceBaseDir = join(marketplacesDir, marketplaceFile.split('/')[0]!);
 
         // Process each plugin in the marketplace
         for (const plugin of marketplaceData.plugins) {
@@ -239,7 +177,7 @@ export async function scanMarketplacePlugins(): Promise<PluginRegistry> {
             }
 
             // Resolve the plugin path using the source field
-            const pluginPath = join(marketplaceBaseDir, plugin.source);
+            const pluginPath = join(installLocation, plugin.source);
 
             // Scan for components in the plugin directory
             const components = await scanPluginComponents(pluginPath);
@@ -260,34 +198,21 @@ export async function scanMarketplacePlugins(): Promise<PluginRegistry> {
           }
         }
       } catch (error) {
-        console.warn(`Warning: Error reading marketplace file ${marketplaceFile}:`, error);
+        console.warn(`Warning: Error reading marketplace ${marketplaceName}:`, error);
       }
     }
   } catch (error) {
-    // Gracefully handle case where marketplaces directory doesn't exist
-    console.warn('Warning: Error scanning marketplace directories:', error);
+    console.warn('Warning: Error reading known marketplaces:', error);
   }
 
   return registry;
 }
 
 /**
- * Scans all available plugins (installed and marketplace) and returns merged registry
+ * Scans all available plugins from known marketplaces
  */
 export async function scanAllPlugins(): Promise<PluginRegistry> {
-  // Scan both installed and marketplace plugins
-  const [installedRegistry, marketplaceRegistry] = await Promise.all([
-    scanInstalledPlugins(),
-    scanMarketplacePlugins()
-  ]);
-
-  // Merge results, with installed plugins taking precedence
-  const mergedPlugins = new Map<string, PluginInfo>([
-    ...marketplaceRegistry.plugins,
-    ...installedRegistry.plugins
-  ]);
-
-  return { plugins: mergedPlugins };
+  return scanMarketplacePlugins();
 }
 
 /**
