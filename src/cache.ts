@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { mkdirSync, rmSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { cp } from "node:fs/promises";
-import { PluginInfo } from "./scanner";
+import type { PluginInfo } from "./scanner";
 import { expandEnvVariables, expandEnvInObject } from "./env-expansion";
 
 let instanceId: string;
@@ -210,6 +210,11 @@ export async function getCachedPlugin(plugin: PluginInfo): Promise<string> {
   // Parse plugin name to get marketplace and plugin name
   // Format: "plugin-name@marketplace"
   const [pluginName, marketplace] = plugin.name.split("@");
+
+  // Ensure we have valid parts
+  if (!pluginName || !marketplace) {
+    throw new Error(`Invalid plugin name format: ${plugin.name}. Expected "plugin-name@marketplace"`);
+  }
 
   // Create cache structure: <cache-dir>/<marketplace>/<plugin-name>/
   const marketplaceDir = join(cacheDir, marketplace);

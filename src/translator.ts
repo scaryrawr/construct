@@ -101,15 +101,20 @@ function transformMcpServer(
     };
   }
   
-  // Local server
-  return {
-    type: "local",
-    command: server.command,
-    args: server.args,
-    env: server.env,
-    cwd: server.cwd,
-    tools: ["*"],
-  };
+  // Local server - 'command' property distinguishes from HTTP
+  if ('command' in server) {
+    return {
+      type: "local",
+      command: server.command,
+      args: server.args,
+      env: server.env,
+      cwd: server.cwd,
+      tools: ["*"],
+    };
+  }
+
+  // Should never reach here, but TypeScript needs exhaustive handling
+  throw new Error("Unknown MCP server type");
 }
 
 /**

@@ -226,19 +226,19 @@ describe("expandEnvInObject", () => {
   });
 
   test("Test 8b: Array of objects with variables", () => {
-    const input = [
+    const input: Array<{ value: string }> = [
       { value: "${TEST_VAR}" },
       { value: "${NESTED_VAR}" },
       { value: "${UNSET_OBJ_VAR:-fallback}" },
     ];
     const result = expandEnvInObject(input);
-    expect(result[0].value).toBe("test_value");
-    expect(result[1].value).toBe("nested_value");
-    expect(result[2].value).toBe("fallback");
+    expect(result[0]?.value).toBe("test_value");
+    expect(result[1]?.value).toBe("nested_value");
+    expect(result[2]?.value).toBe("fallback");
   });
 
   test("Test: Mixed array and object structure", () => {
-    const input = {
+    const input: { items: Array<{ name: string; config: { value: string } }> } = {
       items: [
         {
           name: "${TEST_VAR}",
@@ -249,8 +249,8 @@ describe("expandEnvInObject", () => {
       ],
     };
     const result = expandEnvInObject(input);
-    expect(result.items[0].name).toBe("test_value");
-    expect(result.items[0].config.value).toBe("nested_value");
+    expect(result.items[0]?.name).toBe("test_value");
+    expect(result.items[0]?.config.value).toBe("nested_value");
   });
 
   test("Test: LocalEnv override in object expansion", () => {
