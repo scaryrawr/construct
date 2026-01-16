@@ -23,6 +23,7 @@ export async function enablePlugin(pluginName: string): Promise<void> {
   }
 
   await saveConfig({
+    ...(config ?? {}),
     enabledPlugins: [...enabledPlugins, pluginName],
     lastUsed: new Date().toISOString(),
   });
@@ -42,6 +43,7 @@ export async function disablePlugin(pluginName: string): Promise<void> {
   }
 
   await saveConfig({
+    ...config,
     enabledPlugins: config.enabledPlugins.filter((name) => name !== pluginName),
     lastUsed: new Date().toISOString(),
   });
