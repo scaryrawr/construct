@@ -108,10 +108,8 @@ function runGitCommand(args: string[]): void {
       stderr: "pipe",
     });
   } catch (error) {
-    console.error(
-      `Error: Failed to clone/update marketplace: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    process.exit(1);
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to clone/update marketplace: ${message}`);
   }
 
   if (result.exitCode !== 0) {
@@ -119,8 +117,7 @@ function runGitCommand(args: string[]): void {
       decodeOutput(result.stderr) ||
       decodeOutput(result.stdout) ||
       `exit code ${result.exitCode ?? "unknown"}`;
-    console.error(`Error: Failed to clone/update marketplace: ${details}`);
-    process.exit(1);
+    throw new Error(`Failed to clone/update marketplace: ${details}`);
   }
 }
 
@@ -170,7 +167,12 @@ export async function addMarketplace(
   const existing = knownMarketplaces[parsed.name];
   if (existing) {
     if (existing.source.source === "github" && existing.source.repo === parsed.repo) {
-      runGitCommand(["-C", existing.installLocation, "pull"]);
+      try {
+        runGitCommand(["-C", existing.installLocation, "pull"]);
+      } catch (error) {
+        console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+        process.exit(1);
+      }
       knownMarketplaces[parsed.name] = {
         ...existing,
         lastUpdated: new Date().toISOString(),
@@ -190,7 +192,12 @@ export async function addMarketplace(
   const installLocation = join(marketplacesRoot, parsed.name);
   const repoUrl = `https://github.com/${parsed.repo}.git`;
 
-  runGitCommand(["clone", repoUrl, installLocation]);
+  try {
+    runGitCommand(["clone", repoUrl, installLocation]);
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
   await validateMarketplace(installLocation, target);
 
   knownMarketplaces[parsed.name] = {
@@ -230,8 +237,7 @@ export async function updateMarketplace(
   const knownMarketplaces = await readKnownMarketplaces(paths);
   const marketplace = knownMarketplaces[name];
   if (!marketplace) {
-    console.error(`Error: Marketplace "${name}" not found`);
-    process.exit(1);
+    throw new Error(`Marketplace "${name}" not found`);
   }
 
   if (marketplace.source.source !== "github") {
@@ -261,9 +267,23 @@ export async function updateAllMarketplaces(
     return;
   }
 
+  const results: { name: string; success: boolean; error?: string }[] = [];
+
   for (const [name] of githubMarketplaces) {
-    await updateMarketplace(name, paths);
+    try {
+      await updateMarketplace(name, paths);
+      results.push({ name, success: true });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Error updating ${name}: ${errorMessage}`);
+      results.push({ name, success: false, error: errorMessage });
+    }
   }
 
-  console.log(`Updated ${githubMarketplaces.length} marketplace(s)`);
+  const successCount = results.filter((r) => r.success).length;
+  const failureCount = results.filter((r) => !r.success).length;
+
+  console.log(
+    `\nUpdate complete: ${successCount} succeeded, ${failureCount} failed`,
+  );
 }

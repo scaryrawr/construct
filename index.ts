@@ -64,8 +64,15 @@ async function main(): Promise<void> {
         process.exit(0);
       }
       if (args.marketplaceTarget) {
-        await updateMarketplace(args.marketplaceTarget);
-        process.exit(0);
+        try {
+          await updateMarketplace(args.marketplaceTarget);
+          process.exit(0);
+        } catch (error) {
+          console.error(
+            `Error: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          process.exit(1);
+        }
       }
       console.error(
         'Error: Marketplace name is required for "update" command. Use "--all" to update all marketplaces or provide a marketplace name.'

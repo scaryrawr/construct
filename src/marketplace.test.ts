@@ -417,7 +417,7 @@ describe("marketplace", () => {
     }
 
     expect(calls).toEqual([["git", "-C", alphaLocation, "pull"]]);
-    expect(messages).toContain("Updated 1 marketplace(s)");
+    expect(messages).toContain("\nUpdate complete: 1 succeeded, 0 failed");
   });
 
   test("updateAllMarketplaces() prints message when no GitHub marketplaces found", async () => {
@@ -437,5 +437,58 @@ describe("marketplace", () => {
     }
 
     expect(messages).toContain("No marketplaces to update.");
+  });
+
+  test("updateAllMarketplaces() continues updating after failure and prints summary", async () => {
+    const alphaLocation = createMarketplaceDir("alpha");
+    const betaLocation = createMarketplaceDir("beta");
+    const gammaLocation = createMarketplaceDir("gamma");
+    writeKnownMarketplaces({
+      alpha: {
+        source: { source: "github", repo: "owner/alpha" },
+        installLocation: alphaLocation,
+        lastUpdated: "2025-01-01T00:00:00.000Z",
+      },
+      beta: {
+        source: { source: "github", repo: "owner/beta" },
+        installLocation: betaLocation,
+        lastUpdated: "2025-01-02T00:00:00.000Z",
+      },
+      gamma: {
+        source: { source: "github", repo: "owner/gamma" },
+        installLocation: gammaLocation,
+        lastUpdated: "2025-01-03T00:00:00.000Z",
+      },
+    });
+
+    const calls: string[][] = [];
+    const restoreSpawn = mockSpawnSync((cmd) => {
+      calls.push(cmd);
+      // Make beta fail
+      if (cmd[2] === betaLocation) {
+        return { exitCode: 1, stderr: Buffer.from("git pull failed") };
+      }
+      return { exitCode: 0 };
+    });
+
+    const { messages: logMessages, restore: restoreLog } = captureConsole("log");
+    const { messages: errorMessages, restore: restoreError } = captureConsole("error");
+    try {
+      await updateAllMarketplaces(paths);
+    } finally {
+      restoreSpawn();
+      restoreLog();
+      restoreError();
+    }
+
+    expect(calls).toEqual([
+      ["git", "-C", alphaLocation, "pull"],
+      ["git", "-C", betaLocation, "pull"],
+      ["git", "-C", gammaLocation, "pull"],
+    ]);
+    expect(logMessages).toContain("Updated marketplace: alpha");
+    expect(errorMessages).toContain("Error updating beta: Failed to clone/update marketplace: git pull failed");
+    expect(logMessages).toContain("Updated marketplace: gamma");
+    expect(logMessages).toContain("\nUpdate complete: 2 succeeded, 1 failed");
   });
 });
