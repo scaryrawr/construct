@@ -64,7 +64,7 @@ export interface CliArgs {
   command: "run" | "operator" | "plugin";
   // ... existing fields ...
   pluginSubcommand?: "enable" | "disable";
-  listEnabled?: boolean;
+  listEnabledPlugins: boolean;
   marketplaceSubcommand?: "list" | "add" | "remove" | "update";
   pluginName?: string;
   marketplaceTarget?: string;  // marketplace name or URL
