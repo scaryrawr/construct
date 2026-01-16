@@ -43,12 +43,20 @@ export async function disablePlugin(pluginName: string): Promise<void> {
   }
 
   await saveConfig({
-    ...config,
-    enabledPlugins: config.enabledPlugins.filter((name) => name !== pluginName),
-    lastUsed: new Date().toISOString(),
-  });
+  try {
+    await saveConfig({
+      enabledPlugins: config.enabledPlugins.filter((name) => name !== pluginName),
+      lastUsed: new Date().toISOString(),
+    });
 
-  console.log(`Disabled plugin: ${pluginName}`);
+    console.log(`Disabled plugin: ${pluginName}`);
+  } catch (error) {
+    console.error(
+      `Failed to disable plugin "${pluginName}" because the configuration could not be saved:`,
+      error,
+    );
+    throw error;
+  }
 }
 
 /**
