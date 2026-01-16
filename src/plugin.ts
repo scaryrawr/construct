@@ -37,7 +37,7 @@ export async function enablePlugin(pluginName: string): Promise<void> {
 export async function disablePlugin(pluginName: string): Promise<void> {
   const config = await loadConfig();
 
-  if (!config || !config.enabledPlugins.includes(pluginName)) {
+  if (!config?.enabledPlugins?.includes(pluginName)) {
     console.log(`Plugin not enabled: ${pluginName}`);
     return;
   }
