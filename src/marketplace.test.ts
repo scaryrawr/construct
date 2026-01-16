@@ -419,4 +419,23 @@ describe("marketplace", () => {
     expect(calls).toEqual([["git", "-C", alphaLocation, "pull"]]);
     expect(messages).toContain("Updated 1 marketplace(s)");
   });
+
+  test("updateAllMarketplaces() prints message when no GitHub marketplaces found", async () => {
+    writeKnownMarketplaces({
+      local: {
+        source: { source: "directory", path: "/some/path" },
+        installLocation: "/some/path",
+        lastUpdated: "2025-01-01T00:00:00.000Z",
+      },
+    });
+
+    const { messages, restore } = captureConsole("log");
+    try {
+      await updateAllMarketplaces(paths);
+    } finally {
+      restore();
+    }
+
+    expect(messages).toContain("No marketplaces to update.");
+  });
 });

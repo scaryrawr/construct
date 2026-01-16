@@ -256,6 +256,11 @@ export async function updateAllMarketplaces(
     ([, info]) => info.source.source === "github",
   );
 
+  if (githubMarketplaces.length === 0) {
+    console.log("No marketplaces to update.");
+    return;
+  }
+
   for (const [name] of githubMarketplaces) {
     await updateMarketplace(name, paths);
   }
