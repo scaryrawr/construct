@@ -53,10 +53,10 @@ async function readKnownMarketplaces(
       return data as KnownMarketplacesFile;
     }
   } catch (error) {
-    console.error(
-      `Error: Failed to read known marketplaces: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    process.exit(1);
+    const message = `Error: Failed to read known marketplaces: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    throw new Error(message);
   }
 
   return {};
