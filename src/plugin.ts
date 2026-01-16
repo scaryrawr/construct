@@ -42,7 +42,6 @@ export async function disablePlugin(pluginName: string): Promise<void> {
     return;
   }
 
-  await saveConfig({
   try {
     await saveConfig({
       enabledPlugins: config.enabledPlugins.filter((name) => name !== pluginName),

@@ -76,6 +76,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
             alias: "e",
             description: "List enabled plugins",
             default: false,
+            conflicts: ["enable", "disable"],
           })
           .command(
             "enable <pluginName>",
@@ -84,6 +85,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
               enableYargs.positional("pluginName", {
                 type: "string",
                 demandOption: true,
+                conflicts: "list-enabled",
               }),
             (args) => {
               command = "plugin";
@@ -98,6 +100,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
               disableYargs.positional("pluginName", {
                 type: "string",
                 demandOption: true,
+                conflicts: "list-enabled",
               }),
             (args) => {
               command = "plugin";
