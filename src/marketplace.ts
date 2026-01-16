@@ -67,8 +67,17 @@ async function writeKnownMarketplaces(
   paths?: MarketplacePaths,
 ): Promise<void> {
   const path = paths?.knownMarketplacesPath ?? getKnownMarketplacesPath();
-  mkdirSync(dirname(path), { recursive: true });
-  await Bun.write(path, JSON.stringify(data, null, 2));
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    await Bun.write(path, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error(
+      `Error: Failed to write known marketplaces file at "${path}": ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    process.exit(1);
+  }
 }
 
 function parseMarketplaceTarget(
@@ -114,7 +123,7 @@ function runGitCommand(args: string[]): void {
     process.exit(1);
   }
 
-  if (result.exitCode !== 0) {
+  if (result.exitCode !== 0 || result.exitCode === null) {
     const details =
       decodeOutput(result.stderr) ||
       decodeOutput(result.stdout) ||
@@ -179,9 +188,29 @@ export async function addMarketplace(
       console.log(`Updated marketplace: ${parsed.name}`);
       return;
     }
-    console.error(
-      `Error: Marketplace "${parsed.name}" already exists with a different source`,
-    );
+    let conflictMessage = `Error: Marketplace "${parsed.name}" already exists with a different source.`;
+    if (existing.source.source === "github") {
+      const existingRepo = existing.source.repo ?? "<unknown>";
+      conflictMessage +=
+        ` It is currently registered as a GitHub marketplace pointing to "${existingRepo}",` +
+        ` but you attempted to add it as "${parsed.repo}".`;
+    } else if (existing.source.source === "directory") {
+      const existingPath = existing.source.path ?? "<unknown path>";
+      conflictMessage +=
+        ` It is currently registered as a directory-based marketplace at "${existingPath}",` +
+        ` so you must remove or rename it before adding a GitHub-based marketplace with the same name.`;
+    }
+    console.error(conflictMessage);
+    process.exit(1);
+  }
+
+  // Sanitize marketplace name to prevent directory traversal
+  if (
+    parsed.name.includes("..") ||
+    parsed.name.includes("/") ||
+    parsed.name.includes("\\")
+  ) {
+    console.error(`Error: Invalid marketplace name: ${parsed.name}`);
     process.exit(1);
   }
 

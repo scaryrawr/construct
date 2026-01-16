@@ -181,6 +181,37 @@ describe("marketplace", () => {
     expect(entry.source.repo).toBe("owner/repo-name");
   });
 
+  test("addMarketplace() parses GitHub URL with .git suffix correctly", async () => {
+    const restoreSpawn = mockSpawnSync((cmd) => {
+      if (cmd[1] === "clone") {
+        const installLocation = cmd[3];
+        if (!installLocation) {
+          throw new Error("Missing install location");
+        }
+        mkdirSync(join(installLocation, ".claude-plugin"), { recursive: true });
+        writeFileSync(
+          join(installLocation, ".claude-plugin", "marketplace.json"),
+          JSON.stringify({ name: "repo-name", plugins: [] }, null, 2),
+        );
+      }
+      return { exitCode: 0 };
+    });
+
+    try {
+      await addMarketplace("https://github.com/owner/repo-name.git", paths);
+    } finally {
+      restoreSpawn();
+    }
+
+    const known = readKnownMarketplaces();
+    const entry = known["repo-name"];
+    expect(entry).toBeDefined();
+    if (!entry) {
+      throw new Error("Missing marketplace entry");
+    }
+    expect(entry.source.repo).toBe("owner/repo-name");
+  });
+
   test("addMarketplace() parses owner/repo shorthand correctly", async () => {
     const restoreSpawn = mockSpawnSync((cmd) => {
       if (cmd[1] === "clone") {

@@ -151,13 +151,20 @@ export function parseCliArgs(argv: string[]): CliArgs {
                     updateYargs
                       .positional("name", {
                         type: "string",
-                        conflicts: "all",
                       })
                       .option("all", {
                         type: "boolean",
                         alias: "a",
                         description: "Update all git-based marketplaces",
                         default: false,
+                      })
+                      .check((args) => {
+                        if (args.name && args.all) {
+                          throw new Error(
+                            "Specify either a marketplace name or --all, but not both.",
+                          );
+                        }
+                        return true;
                       }),
                   (args) => {
                     command = "plugin";
