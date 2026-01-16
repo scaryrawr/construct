@@ -6,6 +6,14 @@ import { translatePlugins } from "./src/translator";
 import { executeCopilot } from "./src/executor";
 import { runOperator } from "./src/operator";
 import { clearAllCaches } from "./src/cache";
+import { enablePlugin, disablePlugin, listEnabledPlugins } from "./src/plugin";
+import {
+  addMarketplace,
+  listMarketplaces,
+  removeMarketplace,
+  updateMarketplace,
+  updateAllMarketplaces,
+} from "./src/marketplace";
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv);
@@ -13,6 +21,63 @@ async function main(): Promise<void> {
   if (args.command === "operator") {
     const exitCode = await runOperator({ passthroughArgs: args.passthroughArgs });
     process.exit(exitCode);
+  }
+
+  if (args.command === "plugin") {
+    if (args.pluginSubcommand === "enable" && args.pluginName) {
+      await enablePlugin(args.pluginName);
+      process.exit(0);
+    }
+
+    if (args.pluginSubcommand === "disable" && args.pluginName) {
+      await disablePlugin(args.pluginName);
+      process.exit(0);
+    }
+
+    if (
+      args.listEnabledPlugins &&
+      !args.pluginSubcommand &&
+      !args.marketplaceSubcommand
+    ) {
+      await listEnabledPlugins();
+      process.exit(0);
+    }
+
+    if (args.marketplaceSubcommand === "list") {
+      await listMarketplaces();
+      process.exit(0);
+    }
+
+    if (args.marketplaceSubcommand === "add" && args.marketplaceTarget) {
+      await addMarketplace(args.marketplaceTarget);
+      process.exit(0);
+    }
+
+    if (args.marketplaceSubcommand === "remove" && args.marketplaceTarget) {
+      await removeMarketplace(args.marketplaceTarget);
+      process.exit(0);
+    }
+
+    if (args.marketplaceSubcommand === "update") {
+      if (args.updateAll) {
+        await updateAllMarketplaces();
+        process.exit(0);
+      }
+      if (args.marketplaceTarget) {
+        await updateMarketplace(args.marketplaceTarget);
+        process.exit(0);
+      }
+      console.error(
+        "Error: Marketplace name is required for 'update' command. Use '--all' to update all marketplaces or provide a marketplace name."
+      );
+      process.exit(1);
+    }
+
+    // If we get here with a plugin command but no valid subcommand,
+    // show help for the plugin command
+    console.error("Error: plugin command requires a subcommand");
+    console.error("Run 'construct plugin --help' for usage information");
+    process.exit(1);
   }
 
   // Handle --clear-cache

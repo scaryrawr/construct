@@ -70,8 +70,9 @@ function sanitizeDescription(description?: string): string | undefined {
 /**
  * Gets the path to the known marketplaces configuration file
  */
-function getKnownMarketplacesPath(): string {
-  return join(homedir(), '.claude', 'plugins', 'known_marketplaces.json');
+export function getKnownMarketplacesPath(): string {
+  const homeDir = process.env.HOME ?? homedir();
+  return join(homeDir, '.claude', 'plugins', 'known_marketplaces.json');
 }
 
 /**
