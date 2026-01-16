@@ -68,7 +68,7 @@ async function main(): Promise<void> {
         process.exit(0);
       }
       console.error(
-        "Error: Marketplace name is required for 'update' command. Use '--all' to update all marketplaces or provide a marketplace name."
+        'Error: Marketplace name is required for "update" command. Use "--all" to update all marketplaces or provide a marketplace name.'
       );
       process.exit(1);
     }
