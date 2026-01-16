@@ -67,7 +67,9 @@ async function main(): Promise<void> {
         await updateMarketplace(args.marketplaceTarget);
         process.exit(0);
       }
-      console.error("Error: Invalid marketplace: (missing)");
+      console.error(
+        "Error: Marketplace name is required for 'update' command. Use '--all' to update all marketplaces or provide a marketplace name."
+      );
       process.exit(1);
     }
 
