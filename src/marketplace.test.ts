@@ -128,8 +128,8 @@ describe("marketplace", () => {
           throw new Error("Missing install location");
         }
         // Simulate git clone by creating the marketplace structure
-        memFs.mkdir(join(installLocation, ".claude-plugin"), { recursive: true });
-        memFs.writeFile(
+        memFs.mkdirSync(join(installLocation, ".claude-plugin"), { recursive: true });
+        memFs.writeFileSync(
           join(installLocation, ".claude-plugin", "marketplace.json"),
           JSON.stringify({ name: "repo-name", plugins: [] }, null, 2),
         );
@@ -155,8 +155,8 @@ describe("marketplace", () => {
         if (!installLocation) {
           throw new Error("Missing install location");
         }
-        memFs.mkdir(join(installLocation, ".claude-plugin"), { recursive: true });
-        memFs.writeFile(
+        memFs.mkdirSync(join(installLocation, ".claude-plugin"), { recursive: true });
+        memFs.writeFileSync(
           join(installLocation, ".claude-plugin", "marketplace.json"),
           JSON.stringify({ name: "repo-name", plugins: [] }, null, 2),
         );
@@ -182,8 +182,8 @@ describe("marketplace", () => {
         if (!installLocation) {
           throw new Error("Missing install location");
         }
-        memFs.mkdir(join(installLocation, ".claude-plugin"), { recursive: true });
-        memFs.writeFile(
+        memFs.mkdirSync(join(installLocation, ".claude-plugin"), { recursive: true });
+        memFs.writeFileSync(
           join(installLocation, ".claude-plugin", "marketplace.json"),
           JSON.stringify({ name: "repo-name", plugins: [] }, null, 2),
         );
@@ -214,6 +214,27 @@ describe("marketplace", () => {
       restoreExit();
       restore();
     }
+  });
+
+  test("addMarketplace() throws error when cloned repo has no marketplace.json", async () => {
+    mockShell.setHandler((cmd) => {
+      if (cmd[1] === "clone") {
+        const installLocation = cmd[3];
+        if (!installLocation) {
+          throw new Error("Missing install location");
+        }
+        // Simulate git clone that creates directory but NO marketplace.json
+        memFs.mkdirSync(installLocation, { recursive: true });
+      }
+      return { exitCode: 0, stdout: new Uint8Array(), stderr: new Uint8Array() };
+    });
+
+    await expect(addMarketplace("owner/invalid-repo", deps)).rejects.toThrow(
+      "Invalid marketplace: owner/invalid-repo",
+    );
+
+    // Verify the invalid directory was cleaned up
+    expect(await memFs.exists(join(marketplacesRoot, "invalid-repo"))).toBe(false);
   });
 
   test("addMarketplace() updates existing marketplace instead of erroring", async () => {

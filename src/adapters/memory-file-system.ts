@@ -317,6 +317,43 @@ export class MemoryFileSystem implements FileSystem {
       }
     }
   }
+
+  /**
+   * Synchronous write file for use in mock handlers
+   * The async version just wraps this - no actual async work is done
+   */
+  writeFileSync(path: string, content: string): void {
+    const normalized = this.normalizePath(path);
+    this.ensureParentDirectories(normalized);
+    this.files.set(normalized, content);
+  }
+
+  /**
+   * Synchronous mkdir for use in mock handlers
+   * The async version just wraps this - no actual async work is done
+   */
+  mkdirSync(path: string, options?: MkdirOptions): void {
+    const normalized = this.normalizePath(path);
+
+    if (this.directories.has(normalized)) {
+      return;
+    }
+
+    if (this.files.has(normalized)) {
+      throw new Error(`EEXIST: file already exists, mkdir '${path}'`);
+    }
+
+    if (options?.recursive) {
+      this.ensureParentDirectories(normalized);
+      this.directories.add(normalized);
+    } else {
+      const parent = normalized.substring(0, normalized.lastIndexOf("/")) || "/";
+      if (!this.directories.has(parent)) {
+        throw new Error(`ENOENT: no such file or directory, mkdir '${path}'`);
+      }
+      this.directories.add(normalized);
+    }
+  }
 }
 
 /**
