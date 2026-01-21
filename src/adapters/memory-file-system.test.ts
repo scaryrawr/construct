@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MemoryFileSystem, createMemoryFileSystem } from "./memory-file-system";
+import { MemoryFileSystem } from "./memory-file-system";
 
 describe("MemoryFileSystem", () => {
   describe("writeFileSync", () => {

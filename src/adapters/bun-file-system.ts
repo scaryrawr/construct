@@ -41,9 +41,7 @@ class BunFileSystem implements FileSystem {
     try {
       // Ensure parent directory exists
       const dir = path.dirname(filePath);
-      if (dir !== '.' && dir !== '..') {
-        await this.mkdir(dir, { recursive: true });
-      }
+      await this.mkdir(dir, { recursive: true });
 
       // Write file using Bun.write()
       await Bun.write(filePath, content);
