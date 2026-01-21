@@ -123,7 +123,7 @@ Example: `tmux@scaryrawr-plugins`
 
 ### File Paths
 - Use absolute paths with `join()` from `node:path`
-- Example: `const configPath = join(process.cwd(), CONFIG_FILE)`
+- Example: `const configPath = join(proc.cwd(), CONFIG_FILE)` where `proc` is an injected process-like dependency
 
 ### Environment Variables
 - `COPILOT_SKILLS_DIRS`: Comma-separated list of skill directories

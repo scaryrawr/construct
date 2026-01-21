@@ -1,4 +1,7 @@
 import { join } from "node:path";
+// Sync fs imports used by backward-compatible functions (initCache, cleanupCache)
+// that predate the async FileSystem interface. These functions are kept for
+// existing consumers but new code should use createCache() instead.
 import { mkdirSync, rmSync, existsSync } from "node:fs";
 import type { PluginInfo } from "./scanner";
 import type { FileSystem } from "./interfaces/file-system";
