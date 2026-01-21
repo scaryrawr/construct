@@ -94,7 +94,7 @@ describe("createCache", () => {
   });
 
   test("uses XDG_CACHE_HOME when set", async () => {
-    const { fs, deps } = createTestDeps({
+    const { deps } = createTestDeps({
       env: { XDG_CACHE_HOME: "/custom/cache" },
       pid: 1111,
     });
@@ -105,7 +105,7 @@ describe("createCache", () => {
   });
 
   test("uses homedir/.cache when XDG_CACHE_HOME not set", async () => {
-    const { fs, deps } = createTestDeps({
+    const { deps } = createTestDeps({
       homedir: "/home/alice",
       pid: 2222,
     });
@@ -280,7 +280,7 @@ describe("cleanup", () => {
   });
 
   test("cleanup is idempotent (no error when called multiple times)", async () => {
-    const { fs, deps } = createTestDeps({ pid: 1010 });
+    const { deps } = createTestDeps({ pid: 1010 });
 
     const cache = createCache(deps);
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -318,7 +318,7 @@ describe("clearAllCaches", () => {
   });
 
   test("handles non-existent cache directory gracefully", async () => {
-    const { fs, deps } = createTestDeps({ homedir: "/home/empty" });
+    const { deps } = createTestDeps({ homedir: "/home/empty" });
 
     // Should not throw even if cache doesn't exist
     await clearAllCaches(deps);
