@@ -23,8 +23,8 @@ export class BunShell implements Shell {
     // Convert Bun result to SpawnSyncResult
     return {
       exitCode: result.exitCode,
-      stdout: new Uint8Array(result.stdout?.buffer ?? new ArrayBuffer(0)),
-      stderr: new Uint8Array(result.stderr?.buffer ?? new ArrayBuffer(0)),
+      stdout: result.stdout ?? new Uint8Array(),
+      stderr: result.stderr ?? new Uint8Array(),
     };
   }
 }
