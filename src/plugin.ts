@@ -1,24 +1,58 @@
-import { scanAllPlugins } from "./scanner";
-import { loadConfig, saveConfig } from "./config";
+import {
+  scanAllPlugins as defaultScanAllPlugins,
+  type PluginRegistry,
+} from "./scanner";
+import {
+  loadConfig as defaultLoadConfig,
+  saveConfig as defaultSaveConfig,
+  type ConstructConfig,
+} from "./config";
+
+/**
+ * Dependencies for plugin operations, allowing injection for testing.
+ */
+export interface PluginDependencies {
+  scanAllPlugins?: () => Promise<PluginRegistry>;
+  loadConfig?: () => Promise<ConstructConfig | null>;
+  saveConfig?: (config: ConstructConfig) => Promise<void>;
+  exit?: (code: number) => never;
+  log?: (msg: string) => void;
+  error?: (msg: string) => void;
+}
+
+const defaultDeps: Required<PluginDependencies> = {
+  scanAllPlugins: defaultScanAllPlugins,
+  loadConfig: defaultLoadConfig,
+  saveConfig: defaultSaveConfig,
+  exit: (code: number) => process.exit(code),
+  log: (msg: string) => console.log(msg),
+  error: (msg: string) => console.error(msg),
+};
 
 /**
  * Enables a plugin by adding it to the project config.
  */
-export async function enablePlugin(pluginName: string): Promise<void> {
+export async function enablePlugin(
+  pluginName: string,
+  deps?: PluginDependencies,
+): Promise<void> {
+  const { scanAllPlugins, loadConfig, saveConfig, exit, log, error } = {
+    ...defaultDeps,
+    ...deps,
+  };
+
   const registry = await scanAllPlugins();
 
   if (!registry.plugins.has(pluginName)) {
-    console.error(
-      `Error: Plugin "${pluginName}" not found in any known marketplace`,
-    );
-    process.exit(1);
+    error(`Error: Plugin "${pluginName}" not found in any known marketplace`);
+    exit(1);
   }
 
   const config = await loadConfig();
   const enabledPlugins = config?.enabledPlugins ?? [];
 
   if (enabledPlugins.includes(pluginName)) {
-    console.log(`Plugin already enabled: ${pluginName}`);
+    log(`Plugin already enabled: ${pluginName}`);
     return;
   }
 
@@ -27,17 +61,22 @@ export async function enablePlugin(pluginName: string): Promise<void> {
     lastUsed: new Date().toISOString(),
   });
 
-  console.log(`Enabled plugin: ${pluginName}`);
+  log(`Enabled plugin: ${pluginName}`);
 }
 
 /**
  * Disables a plugin by removing it from the project config.
  */
-export async function disablePlugin(pluginName: string): Promise<void> {
+export async function disablePlugin(
+  pluginName: string,
+  deps?: PluginDependencies,
+): Promise<void> {
+  const { loadConfig, saveConfig, log } = { ...defaultDeps, ...deps };
+
   const config = await loadConfig();
 
   if (!config || !config.enabledPlugins.includes(pluginName)) {
-    console.log(`Plugin not enabled: ${pluginName}`);
+    log(`Plugin not enabled: ${pluginName}`);
     return;
   }
 
@@ -46,23 +85,27 @@ export async function disablePlugin(pluginName: string): Promise<void> {
     lastUsed: new Date().toISOString(),
   });
 
-  console.log(`Disabled plugin: ${pluginName}`);
+  log(`Disabled plugin: ${pluginName}`);
 }
 
 /**
  * Lists enabled plugins from the project config.
  */
-export async function listEnabledPlugins(): Promise<void> {
+export async function listEnabledPlugins(
+  deps?: PluginDependencies,
+): Promise<void> {
+  const { loadConfig, log } = { ...defaultDeps, ...deps };
+
   const config = await loadConfig();
   const enabledPlugins = config?.enabledPlugins ?? [];
 
   if (enabledPlugins.length === 0) {
-    console.log("No plugins enabled.");
+    log("No plugins enabled.");
     return;
   }
 
-  console.log("Enabled plugins:");
+  log("Enabled plugins:");
   for (const pluginName of enabledPlugins) {
-    console.log(`  ${pluginName}`);
+    log(`  ${pluginName}`);
   }
 }
