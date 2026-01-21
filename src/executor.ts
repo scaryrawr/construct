@@ -1,4 +1,6 @@
 import type { TranslatedAgent } from './agent-translator';
+import type { Shell } from './interfaces/shell';
+import { bunShell } from './adapters/bun-shell';
 import { unlinkSync } from 'node:fs';
 
 export interface ExecutorOptions {
@@ -6,6 +8,11 @@ export interface ExecutorOptions {
   additionalMcpConfig: string | null;
   passthroughArgs: string[];
   translatedAgents: TranslatedAgent[];
+}
+
+export interface ExecutorDependencies {
+  shell?: Shell;
+  env?: Record<string, string | undefined>;
 }
 
 function setupCleanup(translatedAgents: TranslatedAgent[]) {
@@ -35,9 +42,13 @@ function setupCleanup(translatedAgents: TranslatedAgent[]) {
   });
 }
 
-export function executeCopilot(options: ExecutorOptions): number {
+export function executeCopilot(options: ExecutorOptions, deps?: ExecutorDependencies): number {
   setupCleanup(options.translatedAgents);
   const { env, additionalMcpConfig, passthroughArgs } = options;
+
+  // Use injected dependencies or defaults
+  const shell = deps?.shell ?? bunShell;
+  const baseEnv = deps?.env ?? Bun.env;
 
   // Build args array
   const args: string[] = [];
@@ -46,16 +57,18 @@ export function executeCopilot(options: ExecutorOptions): number {
   }
   args.push(...passthroughArgs);
 
-  // Merge env with current process env
+  // Merge env with base env
   const mergedEnv = {
-    ...Bun.env,
+    ...baseEnv,
     ...env,
   };
 
   // Spawn copilot subprocess
-  const result = Bun.spawnSync(['copilot', ...args], {
+  const result = shell.spawnSync(['copilot', ...args], {
     env: mergedEnv,
-    stdio: ['inherit', 'inherit', 'inherit'],
+    stdin: 'inherit',
+    stdout: 'inherit',
+    stderr: 'inherit',
   });
 
   return result.exitCode ?? 1;
