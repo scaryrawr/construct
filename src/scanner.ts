@@ -1,7 +1,17 @@
 import { join } from "node:path";
-import { homedir } from "node:os";
-import { stat } from "node:fs/promises";
 import { Glob } from "bun";
+import type { FileSystem } from "./interfaces/file-system";
+import type { ProcessEnv } from "./interfaces/process";
+import { bunFileSystem } from "./adapters/bun-file-system";
+import { nodeProcess } from "./adapters/node-process";
+
+/**
+ * Dependencies for scanner functions, enabling dependency injection for testing
+ */
+export interface ScannerDependencies {
+  fs?: FileSystem;
+  process?: ProcessEnv;
+}
 
 /**
  * Represents a single component within a plugin (skill, MCP server, or agent)
@@ -70,15 +80,17 @@ function sanitizeDescription(description?: string): string | undefined {
 /**
  * Gets the path to the known marketplaces configuration file
  */
-export function getKnownMarketplacesPath(): string {
-  const homeDir = process.env.HOME ?? homedir();
+export function getKnownMarketplacesPath(deps: ScannerDependencies = {}): string {
+  const proc = deps.process ?? nodeProcess;
+  const homeDir = proc.get('HOME') ?? proc.homedir();
   return join(homeDir, '.claude', 'plugins', 'known_marketplaces.json');
 }
 
 /**
  * Scans a plugin directory for components (skills, MCPs, agents)
  */
-async function scanPluginComponents(installPath: string): Promise<PluginComponent[]> {
+async function scanPluginComponents(installPath: string, deps: ScannerDependencies = {}): Promise<PluginComponent[]> {
+  const fs = deps.fs ?? bunFileSystem;
   const components: PluginComponent[] = [];
 
   try {
@@ -99,8 +111,7 @@ async function scanPluginComponents(installPath: string): Promise<PluginComponen
 
     // Check for MCP server config: .mcp.json
     const mcpPath = join(installPath, '.mcp.json');
-    const mcpFile = Bun.file(mcpPath);
-    if (await mcpFile.exists()) {
+    if (await fs.exists(mcpPath)) {
       components.push({
         type: 'mcp',
         path: mcpPath,
@@ -132,21 +143,21 @@ async function scanPluginComponents(installPath: string): Promise<PluginComponen
 /**
  * Scans marketplace directories for available plugins using known_marketplaces.json
  */
-export async function scanMarketplacePlugins(): Promise<PluginRegistry> {
+export async function scanMarketplacePlugins(deps: ScannerDependencies = {}): Promise<PluginRegistry> {
+  const fs = deps.fs ?? bunFileSystem;
   const registry: PluginRegistry = {
     plugins: new Map()
   };
 
-  const knownMarketplacesPath = getKnownMarketplacesPath();
-  const knownMarketplacesFile = Bun.file(knownMarketplacesPath);
+  const knownMarketplacesPath = getKnownMarketplacesPath(deps);
 
   // Handle missing known_marketplaces.json gracefully
-  if (!await knownMarketplacesFile.exists()) {
+  if (!await fs.exists(knownMarketplacesPath)) {
     return registry;
   }
 
   try {
-    const knownMarketplacesData: KnownMarketplacesFile = await knownMarketplacesFile.json();
+    const knownMarketplacesData: KnownMarketplacesFile = JSON.parse(await fs.readFile(knownMarketplacesPath));
 
     // Process each known marketplace
     for (const [marketplaceName, marketplaceInfo] of Object.entries(knownMarketplacesData)) {
@@ -154,20 +165,19 @@ export async function scanMarketplacePlugins(): Promise<PluginRegistry> {
 
       try {
         // Check if the marketplace directory exists
-        const marketplaceStat = await stat(installLocation);
+        const marketplaceStat = await fs.stat(installLocation);
         if (!marketplaceStat.isDirectory()) {
           continue;
         }
 
         // Read the marketplace.json file
         const marketplaceJsonPath = join(installLocation, '.claude-plugin', 'marketplace.json');
-        const marketplaceJsonFile = Bun.file(marketplaceJsonPath);
 
-        if (!await marketplaceJsonFile.exists()) {
+        if (!await fs.exists(marketplaceJsonPath)) {
           continue;
         }
 
-        const marketplaceData: MarketplaceFile = await marketplaceJsonFile.json();
+        const marketplaceData: MarketplaceFile = JSON.parse(await fs.readFile(marketplaceJsonPath));
 
         // Process each plugin in the marketplace
         for (const plugin of marketplaceData.plugins) {
@@ -181,7 +191,7 @@ export async function scanMarketplacePlugins(): Promise<PluginRegistry> {
             const pluginPath = join(installLocation, plugin.source);
 
             // Scan for components in the plugin directory
-            const components = await scanPluginComponents(pluginPath);
+            const components = await scanPluginComponents(pluginPath, deps);
             const description = sanitizeDescription(plugin.description);
 
             // Use the format plugin-name@marketplace-name
@@ -212,14 +222,14 @@ export async function scanMarketplacePlugins(): Promise<PluginRegistry> {
 /**
  * Scans all available plugins from known marketplaces
  */
-export async function scanAllPlugins(): Promise<PluginRegistry> {
-  return scanMarketplacePlugins();
+export async function scanAllPlugins(deps: ScannerDependencies = {}): Promise<PluginRegistry> {
+  return scanMarketplacePlugins(deps);
 }
 
 /**
  * Returns a list of all available plugin names (installed and marketplace)
  */
-export async function listAvailablePlugins(): Promise<string[]> {
-  const registry = await scanAllPlugins();
+export async function listAvailablePlugins(deps: ScannerDependencies = {}): Promise<string[]> {
+  const registry = await scanAllPlugins(deps);
   return Array.from(registry.plugins.keys());
 }

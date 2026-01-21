@@ -1,7 +1,18 @@
 import { join } from "node:path";
 import type { PluginInfo, PluginComponent } from "./scanner";
 import { translateAgents, type TranslatedAgent } from "./agent-translator";
-import { initCache, getCachedPlugin } from "./cache";
+import { createCache } from "./cache";
+import type { CacheInstance } from "./cache";
+import type { FileSystem } from "./interfaces/file-system";
+import { bunFileSystem } from "./adapters/bun-file-system";
+
+/**
+ * Dependencies for translator operations
+ */
+export interface TranslatorDependencies {
+  cache?: CacheInstance;
+  fs?: FileSystem;
+}
 
 /**
  * Claude Code MCP server configuration format (local)
@@ -121,11 +132,11 @@ function transformMcpServer(
  * Reads and parses a .mcp.json file
  */
 async function readMcpConfig(
-  mcpConfigPath: string
+  mcpConfigPath: string,
+  fs: FileSystem
 ): Promise<ClaudeMcpConfig | null> {
   try {
-    const file = Bun.file(mcpConfigPath);
-    const text = await file.text();
+    const text = await fs.readFile(mcpConfigPath);
     return JSON.parse(text) as ClaudeMcpConfig;
   } catch (error) {
     console.error(`Failed to read MCP config at ${mcpConfigPath}:`, error);
@@ -161,16 +172,19 @@ function getMcpConfigPath(plugin: PluginInfo): string | undefined {
  * for GitHub Copilot CLI.
  *
  * @param plugins - Array of enabled plugins with their component information
+ * @param deps - Optional dependencies for cache and file system
  * @returns Translation result with environment variables and MCP config JSON
  */
 export async function translatePlugins(
-  plugins: PluginInfo[]
+  plugins: PluginInfo[],
+  deps?: TranslatorDependencies
 ): Promise<TranslationResult> {
   const env: Record<string, string> = {};
   const allMcpServers: Record<string, CopilotMcpServer> = {};
 
-  // Initialize cache
-  initCache();
+  // Use provided dependencies or defaults
+  const cache = deps?.cache ?? createCache();
+  const fs = deps?.fs ?? bunFileSystem;
 
   // Map plugin to cached path for reuse
   const pluginCachePaths = new Map<PluginInfo, string>();
@@ -178,7 +192,7 @@ export async function translatePlugins(
   // 1. Build COPILOT_SKILLS_DIRS from all skill paths (using cached paths)
   const allSkillPaths: string[] = [];
   for (const plugin of plugins) {
-    const cachedPath = await getCachedPlugin(plugin);
+    const cachedPath = await cache.getCachedPlugin(plugin);
     pluginCachePaths.set(plugin, cachedPath);
     allSkillPaths.push(...getSkillPaths(plugin, cachedPath));
   }
@@ -195,7 +209,7 @@ export async function translatePlugins(
       const cachedPath = pluginCachePaths.get(plugin);
       if (cachedPath) {
         const cachedMcpConfigPath = join(cachedPath, ".mcp.json");
-        const claudeConfig = await readMcpConfig(cachedMcpConfigPath);
+        const claudeConfig = await readMcpConfig(cachedMcpConfigPath, fs);
         if (claudeConfig) {
           // Transform each server in the config
           // No inline expansion needed - cache files already have vars expanded

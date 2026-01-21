@@ -1,255 +1,177 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { enablePlugin, disablePlugin, listEnabledPlugins } from "./plugin";
+import { describe, expect, test } from "bun:test";
+import {
+  enablePlugin,
+  disablePlugin,
+  listEnabledPlugins,
+  type PluginDependencies,
+} from "./plugin";
+import type { PluginRegistry } from "./scanner";
+import type { ConstructConfig } from "./config";
 
-let tempRoot: string;
-let originalCwd: string;
-let originalHome: string | undefined;
-
-function mockProcessExit(): () => void {
-  const originalExit = process.exit;
-  (process as { exit: typeof process.exit }).exit = ((code?: number) => {
-    throw new Error(`process.exit:${code ?? 0}`);
-  }) as typeof process.exit;
-  return () => {
-    (process as { exit: typeof process.exit }).exit = originalExit;
-  };
+interface MockState {
+  savedConfig: ConstructConfig | null;
+  exitCode: number | null;
+  logs: string[];
+  errors: string[];
 }
 
-function captureConsole(method: "log" | "error"): {
-  messages: string[];
-  restore: () => void;
-} {
-  const messages: string[] = [];
-  const original = console[method];
-  console[method] = (...args: unknown[]) => {
-    messages.push(args.map(String).join(" "));
-  };
-  return {
-    messages,
-    restore: () => {
-      console[method] = original;
+function createMockDeps(
+  overrides: Partial<{
+    plugins: Map<string, unknown>;
+    config: ConstructConfig | null;
+  }> = {},
+): PluginDependencies & MockState {
+  const result: PluginDependencies & MockState = {
+    savedConfig: null,
+    exitCode: null,
+    logs: [],
+    errors: [],
+    scanAllPlugins: async (): Promise<PluginRegistry> => ({
+      plugins: overrides.plugins ?? new Map(),
+    }),
+    loadConfig: async () => overrides.config ?? null,
+    saveConfig: async (config: ConstructConfig) => {
+      result.savedConfig = config;
+    },
+    exit: ((code: number) => {
+      result.exitCode = code;
+      throw new Error(`exit:${code}`);
+    }) as (code: number) => never,
+    log: (msg: string) => {
+      result.logs.push(msg);
+    },
+    error: (msg: string) => {
+      result.errors.push(msg);
     },
   };
+
+  return result;
 }
 
-beforeEach(() => {
-  tempRoot = join(tmpdir(), `construct-plugin-test-${Date.now()}`);
-  mkdirSync(tempRoot, { recursive: true });
-
-  originalCwd = process.cwd();
-  originalHome = process.env.HOME;
-
-  const homeDir = join(tempRoot, "home");
-  const workDir = join(tempRoot, "work");
-  mkdirSync(homeDir, { recursive: true });
-  mkdirSync(workDir, { recursive: true });
-
-  process.env.HOME = homeDir;
-  process.chdir(workDir);
-
-  const marketplaceDir = join(
-    homeDir,
-    ".claude",
-    "plugins",
-    "marketplaces",
-    "test-marketplace",
-  );
-  mkdirSync(join(marketplaceDir, ".claude-plugin"), { recursive: true });
-  mkdirSync(join(marketplaceDir, "tmux"), { recursive: true });
-  writeFileSync(
-    join(marketplaceDir, ".claude-plugin", "marketplace.json"),
-    JSON.stringify(
-      {
-        name: "test-marketplace",
-        plugins: [{ name: "tmux", source: "tmux", version: "1.0.0" }],
-      },
-      null,
-      2,
-    ),
-  );
-
-  const knownMarketplacesPath = join(
-    homeDir,
-    ".claude",
-    "plugins",
-    "known_marketplaces.json",
-  );
-  mkdirSync(join(homeDir, ".claude", "plugins"), { recursive: true });
-  writeFileSync(
-    knownMarketplacesPath,
-    JSON.stringify(
-      {
-        "test-marketplace": {
-          source: { source: "github", repo: "owner/test-marketplace" },
-          installLocation: marketplaceDir,
-          lastUpdated: new Date().toISOString(),
-        },
-      },
-      null,
-      2,
-    ),
-  );
-});
-
-afterEach(() => {
-  process.chdir(originalCwd);
-  if (originalHome === undefined) {
-    delete process.env.HOME;
-  } else {
-    process.env.HOME = originalHome;
-  }
-  if (existsSync(tempRoot)) {
-    rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
 describe("plugin", () => {
-  test("enablePlugin() adds plugin to .construct.json when plugin exists", async () => {
-    await enablePlugin("tmux@test-marketplace");
+  test("enablePlugin() adds plugin to config when plugin exists", async () => {
+    const deps = createMockDeps({
+      plugins: new Map([["tmux@test-marketplace", { name: "tmux" }]]),
+      config: null,
+    });
 
-    const configPath = join(process.cwd(), ".construct.json");
-    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    await enablePlugin("tmux@test-marketplace", deps);
 
-    expect(config.enabledPlugins).toEqual(["tmux@test-marketplace"]);
+    expect(deps.savedConfig?.enabledPlugins).toEqual(["tmux@test-marketplace"]);
+    expect(deps.logs).toContain("Enabled plugin: tmux@test-marketplace");
   });
 
   test("enablePlugin() exits with error when plugin not found", async () => {
-    const restoreExit = mockProcessExit();
-    const { messages, restore } = captureConsole("error");
-    try {
-      await expect(enablePlugin("missing@test-marketplace")).rejects.toThrow(
-        "process.exit:1",
-      );
-      expect(messages[0]).toBe(
-        'Error: Plugin "missing@test-marketplace" not found in any known marketplace',
-      );
-    } finally {
-      restoreExit();
-      restore();
-    }
+    const deps = createMockDeps({
+      plugins: new Map(),
+    });
+
+    await expect(
+      enablePlugin("missing@test-marketplace", deps),
+    ).rejects.toThrow("exit:1");
+
+    expect(deps.exitCode).toBe(1);
+    expect(deps.errors[0]).toBe(
+      'Error: Plugin "missing@test-marketplace" not found in any known marketplace',
+    );
   });
 
   test("enablePlugin() is idempotent (no duplicate entries)", async () => {
-    await enablePlugin("tmux@test-marketplace");
-    await enablePlugin("tmux@test-marketplace");
+    const deps = createMockDeps({
+      plugins: new Map([["tmux@test-marketplace", { name: "tmux" }]]),
+      config: {
+        enabledPlugins: ["tmux@test-marketplace"],
+        lastUsed: "2024-01-01T00:00:00.000Z",
+      },
+    });
 
-    const configPath = join(process.cwd(), ".construct.json");
-    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    await enablePlugin("tmux@test-marketplace", deps);
 
-    expect(config.enabledPlugins).toEqual(["tmux@test-marketplace"]);
-  });
-
-  test("disablePlugin() removes plugin from .construct.json", async () => {
-    const configPath = join(process.cwd(), ".construct.json");
-    writeFileSync(
-      configPath,
-      JSON.stringify(
-        {
-          enabledPlugins: ["tmux@test-marketplace"],
-          lastUsed: new Date().toISOString(),
-        },
-        null,
-        2,
-      ),
+    expect(deps.savedConfig).toBeNull();
+    expect(deps.logs).toContain(
+      "Plugin already enabled: tmux@test-marketplace",
     );
-
-    await disablePlugin("tmux@test-marketplace");
-
-    const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(config.enabledPlugins).toEqual([]);
   });
 
-  test("disablePlugin() handles missing .construct.json gracefully", async () => {
-    await disablePlugin("tmux@test-marketplace");
-    expect(existsSync(join(process.cwd(), ".construct.json"))).toBe(false);
+  test("disablePlugin() removes plugin from config", async () => {
+    const deps = createMockDeps({
+      config: {
+        enabledPlugins: ["tmux@test-marketplace"],
+        lastUsed: "2024-01-01T00:00:00.000Z",
+      },
+    });
+
+    await disablePlugin("tmux@test-marketplace", deps);
+
+    expect(deps.savedConfig?.enabledPlugins).toEqual([]);
+    expect(deps.logs).toContain("Disabled plugin: tmux@test-marketplace");
+  });
+
+  test("disablePlugin() handles missing config gracefully", async () => {
+    const deps = createMockDeps({
+      config: null,
+    });
+
+    await disablePlugin("tmux@test-marketplace", deps);
+
+    expect(deps.savedConfig).toBeNull();
+    expect(deps.logs).toContain("Plugin not enabled: tmux@test-marketplace");
   });
 
   test("disablePlugin() handles plugin not in config gracefully", async () => {
-    const configPath = join(process.cwd(), ".construct.json");
-    writeFileSync(
-      configPath,
-      JSON.stringify(
-        {
-          enabledPlugins: ["other@test-marketplace"],
-          lastUsed: new Date().toISOString(),
-        },
-        null,
-        2,
-      ),
-    );
+    const deps = createMockDeps({
+      config: {
+        enabledPlugins: ["other@test-marketplace"],
+        lastUsed: "2024-01-01T00:00:00.000Z",
+      },
+    });
 
-    await disablePlugin("tmux@test-marketplace");
+    await disablePlugin("tmux@test-marketplace", deps);
 
-    const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(config.enabledPlugins).toEqual(["other@test-marketplace"]);
+    expect(deps.savedConfig).toBeNull();
+    expect(deps.logs).toContain("Plugin not enabled: tmux@test-marketplace");
   });
 
-  test("listEnabledPlugins() prints all enabled plugins from .construct.json", async () => {
-    const configPath = join(process.cwd(), ".construct.json");
-    writeFileSync(
-      configPath,
-      JSON.stringify(
-        {
-          enabledPlugins: [
-            "tmux@test-marketplace",
-            "playwright@test-marketplace",
-          ],
-          lastUsed: new Date().toISOString(),
-        },
-        null,
-        2,
-      ),
-    );
+  test("listEnabledPlugins() prints all enabled plugins", async () => {
+    const deps = createMockDeps({
+      config: {
+        enabledPlugins: [
+          "tmux@test-marketplace",
+          "playwright@test-marketplace",
+        ],
+        lastUsed: "2024-01-01T00:00:00.000Z",
+      },
+    });
 
-    const { messages, restore } = captureConsole("log");
-    try {
-      await listEnabledPlugins();
-    } finally {
-      restore();
-    }
+    await listEnabledPlugins(deps);
 
-    expect(messages).toEqual([
+    expect(deps.logs).toEqual([
       "Enabled plugins:",
       "  tmux@test-marketplace",
       "  playwright@test-marketplace",
     ]);
   });
 
-  test("listEnabledPlugins() handles missing .construct.json gracefully", async () => {
-    const { messages, restore } = captureConsole("log");
-    try {
-      await listEnabledPlugins();
-    } finally {
-      restore();
-    }
+  test("listEnabledPlugins() handles missing config gracefully", async () => {
+    const deps = createMockDeps({
+      config: null,
+    });
 
-    expect(messages).toEqual(["No plugins enabled."]);
+    await listEnabledPlugins(deps);
+
+    expect(deps.logs).toEqual(["No plugins enabled."]);
   });
 
   test("listEnabledPlugins() handles empty enabledPlugins array", async () => {
-    const configPath = join(process.cwd(), ".construct.json");
-    writeFileSync(
-      configPath,
-      JSON.stringify(
-        {
-          enabledPlugins: [],
-          lastUsed: new Date().toISOString(),
-        },
-        null,
-        2,
-      ),
-    );
+    const deps = createMockDeps({
+      config: {
+        enabledPlugins: [],
+        lastUsed: "2024-01-01T00:00:00.000Z",
+      },
+    });
 
-    const { messages, restore } = captureConsole("log");
-    try {
-      await listEnabledPlugins();
-    } finally {
-      restore();
-    }
+    await listEnabledPlugins(deps);
 
-    expect(messages).toEqual(["No plugins enabled."]);
+    expect(deps.logs).toEqual(["No plugins enabled."]);
   });
 });
