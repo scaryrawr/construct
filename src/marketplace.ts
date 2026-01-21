@@ -162,8 +162,7 @@ async function validateMarketplace(
   );
   if (!(await fs.exists(marketplaceJsonPath))) {
     await fs.rm(installLocation, { recursive: true, force: true });
-    console.error(`Error: Invalid marketplace: ${target}`);
-    process.exit(1);
+    throw new Error(`Invalid marketplace: ${target}`);
   }
 }
 
@@ -186,7 +185,7 @@ export async function addMarketplace(
   target: string,
   deps?: MarketplaceDependencies,
 ): Promise<void> {
-  const { fs, shell } = { ...defaultDeps, ...deps };
+  const { fs } = { ...defaultDeps, ...deps };
   const parsed = parseMarketplaceTarget(target);
   if (!parsed) {
     console.error(`Error: Invalid marketplace: ${target}`);
